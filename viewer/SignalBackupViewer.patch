@@ -1,5 +1,5 @@
 diff --git a/Signal/AppLaunch/AppDelegate.swift b/Signal/AppLaunch/AppDelegate.swift
-index add29ce..501e13c 100644
+index add29ce..eaf1d6f 100644
 --- a/Signal/AppLaunch/AppDelegate.swift
 +++ b/Signal/AppLaunch/AppDelegate.swift
 @@ -1399,6 +1399,14 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -12,12 +12,20 @@ index add29ce..501e13c 100644
 +            RTCInitializeSSL()
 +        }
 +        return
-+#endif
++#else
 +
          let tsAccountManager = DependenciesBridge.shared.tsAccountManager
          let registeredState = try? tsAccountManager.registeredStateWithMaybeSneakyTransaction()
  
-@@ -1491,6 +1499,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
+@@ -1449,6 +1457,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
+         // [UIApplicationDelegate applicationDidBecomeActive:] is complete.
+         let identityManager = DependenciesBridge.shared.identityManager
+         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { identityManager.tryToSyncQueuedVerificationStates() }
++#endif
+     }
+ 
+     // MARK: - Cron
+@@ -1491,6 +1500,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
  
      @MainActor
      private func refreshConnection(isAppActive: Bool) {
@@ -26,12 +34,20 @@ index add29ce..501e13c 100644
 +        cronTask?.cancel()
 +        cronTask = nil
 +        return
-+#endif
++#else
          let chatConnectionManager = DependenciesBridge.shared.chatConnectionManager
  
          let oldActiveConnectionTokens = self.activeConnectionTokens
+@@ -1562,6 +1577,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
+                 },
+             )
+         }
++#endif
+     }
+ 
+     /// Run our various expiration jobs. Callers who add a new "expiring
 diff --git a/Signal/AppLaunch/LaunchJobs.swift b/Signal/AppLaunch/LaunchJobs.swift
-index 6b178cb..36473b1 100644
+index 6b178cb..6e3ea28 100644
 --- a/Signal/AppLaunch/LaunchJobs.swift
 +++ b/Signal/AppLaunch/LaunchJobs.swift
 @@ -8,6 +8,9 @@ import SignalServiceKit
@@ -40,12 +56,19 @@ index 6b178cb..36473b1 100644
      static func run(databaseStorage: SDSDatabaseStorage) async {
 +#if SIGNAL_BACKUP_VIEWER
 +        return
-+#endif
++#else
          // Getting this work done ASAP is super high priority since we won't finish
          // launching until the completion block is fired.
          //
+@@ -23,5 +26,6 @@ enum LaunchJobs {
+         // calls that were not connected, failed or hung up before the app existed
+         // should be marked as missed.
+         await IncompleteCallsJob().run(databaseStorage: databaseStorage)
++#endif
+     }
+ }
 diff --git a/Signal/ConversationView/ConversationViewController+BottomBar.swift b/Signal/ConversationView/ConversationViewController+BottomBar.swift
-index e8079cb..57afdc2 100644
+index e8079cb..19000d6 100644
 --- a/Signal/ConversationView/ConversationViewController+BottomBar.swift
 +++ b/Signal/ConversationView/ConversationViewController+BottomBar.swift
 @@ -65,6 +65,9 @@ public extension ConversationViewController {
@@ -54,12 +77,20 @@ index e8079cb..57afdc2 100644
          bottomViewType = { () -> CVCBottomViewType in
 +#if SIGNAL_BACKUP_VIEWER
 +            return .none
-+#endif
++#else
              // The ordering of this method determines
              // precedence of the bottom views.
  
+@@ -127,6 +130,7 @@ public extension ConversationViewController {
+                 return .announcementOnlyGroup
+             }
+             return .inputToolbar
++#endif
+         }()
+     }
+ 
 diff --git a/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift b/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
-index 80305a2..53e4e6e 100644
+index 80305a2..af7ccb8 100644
 --- a/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
 +++ b/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
 @@ -331,6 +331,10 @@ extension ConversationViewController: CVComponentDelegate {
@@ -68,11 +99,19 @@ index 80305a2..53e4e6e 100644
  
 +#if SIGNAL_BACKUP_VIEWER
 +        return false
-+#endif
++#else
 +
          if thread.isGroupThread, !thread.isLocalUserFullMemberOfThread {
              return false
          }
+@@ -369,6 +373,7 @@ extension ConversationViewController: CVComponentDelegate {
+         }
+ 
+         return true
++#endif
+     }
+ 
+     public func didTapReactions(
 diff --git a/Signal/ConversationView/ConversationViewController+MessageActions.swift b/Signal/ConversationView/ConversationViewController+MessageActions.swift
 index 383d05f..b63889c 100644
 --- a/Signal/ConversationView/ConversationViewController+MessageActions.swift
@@ -94,7 +133,7 @@ index 383d05f..b63889c 100644
          var alignment: ContextMenuTargetedPreview.Alignment = .center
          let interactionType = contextInteraction.itemViewModel.interaction.interactionType
 diff --git a/Signal/ConversationView/ConversationViewController+Misc.swift b/Signal/ConversationView/ConversationViewController+Misc.swift
-index cc3e33e..0807a85 100644
+index cc3e33e..262e99c 100644
 --- a/Signal/ConversationView/ConversationViewController+Misc.swift
 +++ b/Signal/ConversationView/ConversationViewController+Misc.swift
 @@ -467,6 +467,10 @@ extension ConversationViewController {
@@ -103,13 +142,20 @@ index cc3e33e..0807a85 100644
  
 +#if SIGNAL_BACKUP_VIEWER
 +        return
-+#endif
++#else
 +
          guard
              let navigationController,
              navigationController.topViewController === self
+@@ -511,5 +515,6 @@ extension ConversationViewController {
+                 // be reinvoked in < 100ms.
+             }
+         }
++#endif
+     }
+ }
 diff --git a/Signal/ConversationView/MessageActions.swift b/Signal/ConversationView/MessageActions.swift
-index b6c455c..ab98dd2 100644
+index b6c455c..ddc225f 100644
 --- a/Signal/ConversationView/MessageActions.swift
 +++ b/Signal/ConversationView/MessageActions.swift
 @@ -23,6 +23,21 @@ protocol MessageActionsDelegate: AnyObject {
@@ -172,62 +218,93 @@ index b6c455c..ab98dd2 100644
      class func textActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true)
-+#endif
++#else
          var actions: [MessageAction] = []
  
          let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
-@@ -306,6 +349,9 @@ class MessageActions {
+@@ -303,9 +346,13 @@ class MessageActions {
+         }
+ 
+         return actions
++#endif
      }
  
      class func mediaActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true, includeMediaExport: true)
-+#endif
++#else
          var actions: [MessageAction] = []
  
          let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
-@@ -359,6 +405,9 @@ class MessageActions {
+@@ -356,9 +403,13 @@ class MessageActions {
+         }
+ 
+         return actions
++#endif
      }
  
      class func quotedMessageActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true)
-+#endif
++#else
          var actions: [MessageAction] = []
  
          let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
-@@ -411,6 +460,9 @@ class MessageActions {
+@@ -404,6 +455,7 @@ class MessageActions {
+         }
+ 
+         return actions
++#endif
+     }
+ 
+     class func paymentActions(
+@@ -411,6 +463,9 @@ class MessageActions {
          shouldAllowMessageSendActions: Bool,
          delegate: MessageActionsDelegate,
      ) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate)
-+#endif
++#else
          var actions: [MessageAction] = []
  
          let showDetailsAction = MessageActionBuilder.showDetails(
-@@ -466,6 +518,9 @@ class MessageActions {
+@@ -459,6 +514,7 @@ class MessageActions {
+             actions.append(pinAction)
+         }
+         return actions
++#endif
+     }
+ 
+     class func pollActions(
+@@ -466,6 +522,9 @@ class MessageActions {
          shouldAllowMessageSendActions: Bool,
          delegate: MessageActionsDelegate,
      ) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate)
-+#endif
++#else
          var actions: [MessageAction] = []
  
          let showDetailsAction = MessageActionBuilder.showDetails(
-@@ -522,6 +577,9 @@ class MessageActions {
+@@ -519,11 +578,16 @@ class MessageActions {
+         }
+ 
+         return actions
++#endif
      }
  
      class func infoMessageActions(itemViewModel: CVItemViewModelImpl, delegate: MessageActionsDelegate) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeDetails: false)
-+#endif
++#else
          let deleteAction = MessageActionBuilder.deleteMessage(itemViewModel: itemViewModel, delegate: delegate)
          let selectAction = MessageActionBuilder.selectMessage(itemViewModel: itemViewModel, delegate: delegate)
          return [deleteAction, selectAction]
++#endif
+     }
+ }
 diff --git a/Signal/Registration/RegistrationCoordinatorImpl.swift b/Signal/Registration/RegistrationCoordinatorImpl.swift
-index 36ed9b5..4ca49c0 100644
+index 36ed9b5..c63811b 100644
 --- a/Signal/Registration/RegistrationCoordinatorImpl.swift
 +++ b/Signal/Registration/RegistrationCoordinatorImpl.swift
 @@ -658,6 +658,19 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
@@ -277,21 +354,33 @@ index 36ed9b5..4ca49c0 100644
 +        }
 +        await finish(accountIdentity: accountIdentity)
 +        return
-+#endif
++#else
          await db.awaitableWrite { tx in
              if needsToScheduleRestoreFromSVRB() {
                  deps.backupArchiveManager.scheduleRestoreFromSVRBBeforeNextExport(tx: tx)
-@@ -4367,6 +4395,9 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -1552,6 +1580,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+         )
+ 
+         await finish(accountIdentity: accountIdentity)
++#endif
+     }
+ 
+     private func lastLocalBackupDates(
+@@ -4367,9 +4396,13 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
      // MARK: - Permissions
  
      private func requiresSystemPermissions() async -> Bool {
 +#if SIGNAL_BACKUP_VIEWER
 +        return false
-+#endif
++#else
          let needsContactAuthorization = deps.contactsStore.needsContactsAuthorization()
          let needsNotificationAuthorization = await deps.pushRegistrationManager.needsNotificationAuthorization()
          return needsContactAuthorization || needsNotificationAuthorization
-@@ -4401,6 +4432,16 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
++#endif
+     }
+ 
+     // MARK: - Register/Change Number Requests
+@@ -4401,6 +4434,16 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
              fallthrough
  
          case .registering:
@@ -304,12 +393,20 @@ index 36ed9b5..4ca49c0 100644
 +                authPassword: "offline-viewer-no-server-auth",
 +            )
 +            return await responseHandler(.success(viewerIdentity))
-+#endif
++#else
              // The auth token we use going forwards for chat server auth headers
              // is generated by the client. We do that here and put it on the
              // AccountIdentity we generate after success so that we eventually
+@@ -4452,6 +4495,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+             } catch {
+                 return .showErrorSheet(.genericError)
+             }
++#endif
+ 
+         case .changingNumber(let changeNumberState):
+             if let pniState = changeNumberState.pniState {
 diff --git a/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift b/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift
-index dbfb0e2..5e11100 100644
+index dbfb0e2..b69b8fc 100644
 --- a/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift	
 +++ b/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift	
 @@ -778,6 +778,11 @@ public class ChatListViewController: OWSViewController, HomeTabViewController {
@@ -319,11 +416,19 @@ index dbfb0e2..5e11100 100644
 +#if SIGNAL_BACKUP_VIEWER
 +        navigationItem.rightBarButtonItems = []
 +        return
-+#endif
++#else
 +
          var rightBarButtonItems = [UIBarButtonItem]()
  
          let compose = UIBarButtonItem.button(icon: .buttonCompose) { [weak self] in
+@@ -805,6 +810,7 @@ public class ChatListViewController: OWSViewController, HomeTabViewController {
+         }
+ 
+         navigationItem.rightBarButtonItems = rightBarButtonItems
++#endif
+     }
+ 
+     func showNewConversationView() {
 diff --git a/Signal/src/ViewControllers/MessageActionsToolbar.swift b/Signal/src/ViewControllers/MessageActionsToolbar.swift
 index ff39774..3acc0e6 100644
 --- a/Signal/src/ViewControllers/MessageActionsToolbar.swift
