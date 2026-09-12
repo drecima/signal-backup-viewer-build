@@ -94,8 +94,10 @@ jobs:
           test "$(plutil -extract CFBundleIdentifier raw "$viewer/Info.plist")" = "org.signalbackup.viewer"
           test "$(plutil -extract CFBundleDisplayName raw "$viewer/Info.plist")" = "Signal Backup Viewer"
           lipo -archs "$viewer/Signal" | grep -qw arm64
-          strings "$viewer/Signal" | grep -q "Copy Backup Editor ID"
-          otool -l "$viewer/Frameworks/SignalServiceKit.framework/SignalServiceKit" | grep -q "__interpose"
+          strings "$viewer/Signal" > "$RUNNER_TEMP/viewer-main-strings.txt"
+          grep -q "Copy Backup Editor ID" "$RUNNER_TEMP/viewer-main-strings.txt"
+          otool -l "$viewer/Frameworks/SignalServiceKit.framework/SignalServiceKit" > "$RUNNER_TEMP/viewer-ssk-load-commands.txt"
+          grep -q "__interpose" "$RUNNER_TEMP/viewer-ssk-load-commands.txt"
           test ! -e "$viewer/PlugIns"
 
           output="$GITHUB_WORKSPACE/Signal-Backup-Viewer-8.29-viewer1-unsigned.ipa"
