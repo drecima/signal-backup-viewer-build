@@ -1,0 +1,480 @@
+diff --git a/Signal/AppLaunch/AppDelegate.swift b/Signal/AppLaunch/AppDelegate.swift
+index add29ce..501e13c 100644
+--- a/Signal/AppLaunch/AppDelegate.swift
++++ b/Signal/AppLaunch/AppDelegate.swift
+@@ -1399,6 +1399,14 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
+             Logger.info("Activated.")
+         }
+ 
++#if SIGNAL_BACKUP_VIEWER
++        if !hasActivated {
++            hasActivated = true
++            RTCInitializeSSL()
++        }
++        return
++#endif
++
+         let tsAccountManager = DependenciesBridge.shared.tsAccountManager
+         let registeredState = try? tsAccountManager.registeredStateWithMaybeSneakyTransaction()
+ 
+@@ -1491,6 +1499,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
+ 
+     @MainActor
+     private func refreshConnection(isAppActive: Bool) {
++#if SIGNAL_BACKUP_VIEWER
++        activeConnectionTokens.removeAll()
++        cronTask?.cancel()
++        cronTask = nil
++        return
++#endif
+         let chatConnectionManager = DependenciesBridge.shared.chatConnectionManager
+ 
+         let oldActiveConnectionTokens = self.activeConnectionTokens
+diff --git a/Signal/AppLaunch/LaunchJobs.swift b/Signal/AppLaunch/LaunchJobs.swift
+index 6b178cb..36473b1 100644
+--- a/Signal/AppLaunch/LaunchJobs.swift
++++ b/Signal/AppLaunch/LaunchJobs.swift
+@@ -8,6 +8,9 @@ import SignalServiceKit
+ 
+ enum LaunchJobs {
+     static func run(databaseStorage: SDSDatabaseStorage) async {
++#if SIGNAL_BACKUP_VIEWER
++        return
++#endif
+         // Getting this work done ASAP is super high priority since we won't finish
+         // launching until the completion block is fired.
+         //
+diff --git a/Signal/ConversationView/ConversationViewController+BottomBar.swift b/Signal/ConversationView/ConversationViewController+BottomBar.swift
+index e8079cb..57afdc2 100644
+--- a/Signal/ConversationView/ConversationViewController+BottomBar.swift
++++ b/Signal/ConversationView/ConversationViewController+BottomBar.swift
+@@ -65,6 +65,9 @@ public extension ConversationViewController {
+         let tsAccountManager = DependenciesBridge.shared.tsAccountManager
+ 
+         bottomViewType = { () -> CVCBottomViewType in
++#if SIGNAL_BACKUP_VIEWER
++            return .none
++#endif
+             // The ordering of this method determines
+             // precedence of the bottom views.
+ 
+diff --git a/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift b/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
+index 80305a2..53e4e6e 100644
+--- a/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
++++ b/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
+@@ -331,6 +331,10 @@ extension ConversationViewController: CVComponentDelegate {
+     public func shouldAllowMessageSendActionsForItem(_ itemViewModel: CVItemViewModelImpl) -> Bool {
+         AssertIsOnMainThread()
+ 
++#if SIGNAL_BACKUP_VIEWER
++        return false
++#endif
++
+         if thread.isGroupThread, !thread.isLocalUserFullMemberOfThread {
+             return false
+         }
+diff --git a/Signal/ConversationView/ConversationViewController+MessageActions.swift b/Signal/ConversationView/ConversationViewController+MessageActions.swift
+index 383d05f..b63889c 100644
+--- a/Signal/ConversationView/ConversationViewController+MessageActions.swift
++++ b/Signal/ConversationView/ConversationViewController+MessageActions.swift
+@@ -164,6 +164,7 @@ extension ConversationViewController: ContextMenuInteractionDelegate {
+         var accessories = cell.rootComponent?.contextMenuAccessoryViews(componentView: componentView) ?? []
+ 
+         // Add reaction bar if necessary
++#if !SIGNAL_BACKUP_VIEWER
+         if thread.canSendReactionToThread, shouldShowReactionPickerForInteraction(contextInteraction.itemViewModel.interaction) {
+             let reactionBarAccessory = ContextMenuReactionBarAccessory(thread: self.thread, itemViewModel: contextInteraction.itemViewModel)
+             reactionBarAccessory.didSelectReactionHandler = { [weak self] (message: TSMessage, reaction: String, isRemoving: Bool) in
+@@ -184,6 +185,7 @@ extension ConversationViewController: ContextMenuInteractionDelegate {
+             }
+             accessories.append(reactionBarAccessory)
+         }
++#endif
+ 
+         var alignment: ContextMenuTargetedPreview.Alignment = .center
+         let interactionType = contextInteraction.itemViewModel.interaction.interactionType
+diff --git a/Signal/ConversationView/ConversationViewController+Misc.swift b/Signal/ConversationView/ConversationViewController+Misc.swift
+index cc3e33e..0807a85 100644
+--- a/Signal/ConversationView/ConversationViewController+Misc.swift
++++ b/Signal/ConversationView/ConversationViewController+Misc.swift
+@@ -467,6 +467,10 @@ extension ConversationViewController {
+     public func markVisibleMessagesAsRead(caller: String = #function) {
+         AssertIsOnMainThread()
+ 
++#if SIGNAL_BACKUP_VIEWER
++        return
++#endif
++
+         guard
+             let navigationController,
+             navigationController.topViewController === self
+diff --git a/Signal/ConversationView/MessageActions.swift b/Signal/ConversationView/MessageActions.swift
+index b6c455c..ab98dd2 100644
+--- a/Signal/ConversationView/MessageActions.swift
++++ b/Signal/ConversationView/MessageActions.swift
+@@ -23,6 +23,21 @@ protocol MessageActionsDelegate: AnyObject {
+ // MARK: -
+ 
+ enum MessageActionBuilder {
++#if SIGNAL_BACKUP_VIEWER
++    static func copyBackupEditorId(itemViewModel: CVItemViewModelImpl) -> MessageAction {
++        return MessageAction(
++            .backupEditorId,
++            accessibilityLabel: "Copy Backup Editor ID",
++            accessibilityIdentifier: UIView.accessibilityIdentifier(containerName: "message_action", name: "copy_backup_editor_id"),
++            contextMenuTitle: "Copy Backup Editor ID",
++            contextMenuAttributes: [],
++            block: { _ in
++                UIPasteboard.general.string = "sbe1:\(itemViewModel.interaction.timestamp)"
++            },
++        )
++    }
++#endif
++
+     static func reply(itemViewModel: CVItemViewModelImpl, delegate: MessageActionsDelegate) -> MessageAction {
+         return MessageAction(
+             .reply,
+@@ -232,6 +247,31 @@ enum MessageActionBuilder {
+ 
+ class MessageActions {
+ 
++#if SIGNAL_BACKUP_VIEWER
++    private class func viewerActions(
++        itemViewModel: CVItemViewModelImpl,
++        delegate: MessageActionsDelegate,
++        includeDetails: Bool = true,
++        includeTextCopy: Bool = false,
++        includeMediaExport: Bool = false,
++    ) -> [MessageAction] {
++        var actions = [MessageActionBuilder.copyBackupEditorId(itemViewModel: itemViewModel)]
++        if includeTextCopy, itemViewModel.canCopyOrShareOrSpeakText {
++            actions.append(MessageActionBuilder.copyText(itemViewModel: itemViewModel, delegate: delegate))
++        }
++        if includeMediaExport, itemViewModel.canShareMedia {
++            actions.append(MessageActionBuilder.shareMedia(itemViewModel: itemViewModel, delegate: delegate))
++        }
++        if includeMediaExport, itemViewModel.canSaveMedia {
++            actions.append(MessageActionBuilder.saveMedia(itemViewModel: itemViewModel, delegate: delegate))
++        }
++        if includeDetails, itemViewModel.interaction is TSMessage {
++            actions.append(MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate))
++        }
++        return actions
++    }
++#endif
++
+     private class func canLocalUserEditGroupAttributes(itemViewModel: CVItemViewModelImpl) -> Bool {
+         guard let groupModel = itemViewModel.thread.groupModelIfGroupThread as? TSGroupModelV2 else {
+             return true
+@@ -245,6 +285,9 @@ class MessageActions {
+     }
+ 
+     class func textActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
++#if SIGNAL_BACKUP_VIEWER
++        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true)
++#endif
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
+@@ -306,6 +349,9 @@ class MessageActions {
+     }
+ 
+     class func mediaActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
++#if SIGNAL_BACKUP_VIEWER
++        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true, includeMediaExport: true)
++#endif
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
+@@ -359,6 +405,9 @@ class MessageActions {
+     }
+ 
+     class func quotedMessageActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
++#if SIGNAL_BACKUP_VIEWER
++        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true)
++#endif
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
+@@ -411,6 +460,9 @@ class MessageActions {
+         shouldAllowMessageSendActions: Bool,
+         delegate: MessageActionsDelegate,
+     ) -> [MessageAction] {
++#if SIGNAL_BACKUP_VIEWER
++        return viewerActions(itemViewModel: itemViewModel, delegate: delegate)
++#endif
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(
+@@ -466,6 +518,9 @@ class MessageActions {
+         shouldAllowMessageSendActions: Bool,
+         delegate: MessageActionsDelegate,
+     ) -> [MessageAction] {
++#if SIGNAL_BACKUP_VIEWER
++        return viewerActions(itemViewModel: itemViewModel, delegate: delegate)
++#endif
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(
+@@ -522,6 +577,9 @@ class MessageActions {
+     }
+ 
+     class func infoMessageActions(itemViewModel: CVItemViewModelImpl, delegate: MessageActionsDelegate) -> [MessageAction] {
++#if SIGNAL_BACKUP_VIEWER
++        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeDetails: false)
++#endif
+         let deleteAction = MessageActionBuilder.deleteMessage(itemViewModel: itemViewModel, delegate: delegate)
+         let selectAction = MessageActionBuilder.selectMessage(itemViewModel: itemViewModel, delegate: delegate)
+         return [deleteAction, selectAction]
+diff --git a/Signal/Registration/RegistrationCoordinatorImpl.swift b/Signal/Registration/RegistrationCoordinatorImpl.swift
+index 36ed9b5..4ca49c0 100644
+--- a/Signal/Registration/RegistrationCoordinatorImpl.swift
++++ b/Signal/Registration/RegistrationCoordinatorImpl.swift
+@@ -658,6 +658,19 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+ 
+                 fileUrl = chosenBackup.appendingPathComponent(LocalFileBackupManager.FileStructure.backupFile.rawValue)
+ 
++#if SIGNAL_BACKUP_VIEWER
++                let metadataData = try Data(contentsOf: chosenBackup.appendingPathComponent(
++                    LocalFileBackupManager.FileStructure.metadataFile.rawValue,
++                ))
++                let localBackupKey = try MessageRootBackupKey(
++                    accountEntropyPool: accountEntropyPool,
++                    localBackupMetadataData: metadataData,
++                    viewerAci: identity.aci,
++                )
++#else
++                let localBackupKey = backupKey
++#endif
++
+                 downloadProgress?.addSource(withLabel: "", unitCount: 1).complete()
+                 // The recovery key has been derived, the backup file has been sourced,
+                 // so this is the last possible point before we commit to importing the backup.
+@@ -673,7 +686,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+                     fileUrl: fileUrl,
+                     localIdentifiers: identity.localIdentifiers,
+                     isPrimaryDevice: true,
+-                    source: .local(key: backupKey),
++                    source: .local(key: localBackupKey),
+                     progress: importProgress,
+                     logger: self.logger,
+                 )
+@@ -1501,6 +1514,21 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+         accountIdentity: AccountIdentity,
+         block: (DBWriteTransaction) -> Void = { _ in },
+     ) async {
++#if SIGNAL_BACKUP_VIEWER
++        await db.awaitableWrite { tx in
++            deps.accountKeyStore.setAccountEntropyPool(accountEntropyPool, tx: tx)
++            deps.registrationStateChangeManager.didRegisterOrProvision(
++                aci: accountIdentity.aci,
++                phoneNumber: (accountIdentity.e164, accountIdentity.pni),
++                authToken: accountIdentity.authPassword,
++                deviceId: .primary,
++                tx: tx,
++            )
++            deps.tsAccountManager.setIsManualMessageFetchEnabled(true, tx: tx)
++        }
++        await finish(accountIdentity: accountIdentity)
++        return
++#endif
+         await db.awaitableWrite { tx in
+             if needsToScheduleRestoreFromSVRB() {
+                 deps.backupArchiveManager.scheduleRestoreFromSVRBBeforeNextExport(tx: tx)
+@@ -4367,6 +4395,9 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+     // MARK: - Permissions
+ 
+     private func requiresSystemPermissions() async -> Bool {
++#if SIGNAL_BACKUP_VIEWER
++        return false
++#endif
+         let needsContactAuthorization = deps.contactsStore.needsContactsAuthorization()
+         let needsNotificationAuthorization = await deps.pushRegistrationManager.needsNotificationAuthorization()
+         return needsContactAuthorization || needsNotificationAuthorization
+@@ -4401,6 +4432,16 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+             fallthrough
+ 
+         case .registering:
++#if SIGNAL_BACKUP_VIEWER
++            let viewerIdentity = AccountIdentity(
++                aci: Aci(fromUUID: UUID(uuidString: "53424556-4945-4000-8000-000000000001")!),
++                pni: Pni(fromUUID: UUID(uuidString: "53424556-4945-4000-8000-000000000002")!),
++                e164: e164,
++                hasPreviouslyUsedSVR: false,
++                authPassword: "offline-viewer-no-server-auth",
++            )
++            return await responseHandler(.success(viewerIdentity))
++#endif
+             // The auth token we use going forwards for chat server auth headers
+             // is generated by the client. We do that here and put it on the
+             // AccountIdentity we generate after success so that we eventually
+diff --git a/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift b/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift
+index dbfb0e2..5e11100 100644
+--- a/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift	
++++ b/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift	
+@@ -778,6 +778,11 @@ public class ChatListViewController: OWSViewController, HomeTabViewController {
+     private func updateRightBarButtonItems() {
+         guard viewState.chatListMode == .inbox, !viewState.multiSelectState.isActive else { return }
+ 
++#if SIGNAL_BACKUP_VIEWER
++        navigationItem.rightBarButtonItems = []
++        return
++#endif
++
+         var rightBarButtonItems = [UIBarButtonItem]()
+ 
+         let compose = UIBarButtonItem.button(icon: .buttonCompose) { [weak self] in
+diff --git a/Signal/src/ViewControllers/MessageActionsToolbar.swift b/Signal/src/ViewControllers/MessageActionsToolbar.swift
+index ff39774..3acc0e6 100644
+--- a/Signal/src/ViewControllers/MessageActionsToolbar.swift
++++ b/Signal/src/ViewControllers/MessageActionsToolbar.swift
+@@ -30,6 +30,7 @@ public class MessageAction: NSObject {
+         case endPoll
+         case pin
+         case unpin
++        case backupEditorId
+ 
+         /// Lower priority numbers indicate an action should be shown earlier.
+         var priority: Int {
+@@ -49,6 +50,7 @@ public class MessageAction: NSObject {
+             case .pin: 12
+             case .unpin: 13
+             case .delete: 14
++            case .backupEditorId: 3
+             }
+         }
+     }
+@@ -105,6 +107,8 @@ public class MessageAction: NSObject {
+                 return .pin
+             case .unpin:
+                 return .unpin
++            case .backupEditorId:
++                return .contextMenuCopy
+             }
+         }()
+         return Theme.iconImage(icon)
+diff --git a/SignalServiceKit/Backups/MessageRootBackupKey.swift b/SignalServiceKit/Backups/MessageRootBackupKey.swift
+index b7cd872..9e766eb 100644
+--- a/SignalServiceKit/Backups/MessageRootBackupKey.swift
++++ b/SignalServiceKit/Backups/MessageRootBackupKey.swift
+@@ -19,6 +19,37 @@ public struct MessageRootBackupKey: BackupKeyMaterial {
+         self.init(backupKey: backupKey, aci: aci, loggingKey: accountEntropyPool.getLoggingKey())
+     }
+ 
++#if SIGNAL_BACKUP_VIEWER
++    /// Local backups carry their backup ID encrypted in the adjacent metadata file.
++    /// The viewer uses that value so importing does not depend on a registered ACI.
++    public init(
++        accountEntropyPool: AccountEntropyPool,
++        localBackupMetadataData: Data,
++        viewerAci: Aci,
++    ) throws {
++        let metadata = try LocalBackupProto_Metadata(serializedBytes: localBackupMetadataData)
++        guard
++            metadata.version == 1,
++            metadata.hasBackupID,
++            metadata.backupID.iv.count == 12,
++            metadata.backupID.encryptedID.count == 16
++        else {
++            throw OWSAssertionError("Invalid local backup metadata")
++        }
++
++        let backupKey = accountEntropyPool.getBackupKey()
++        let metadataKey = backupKey.deriveLocalBackupMetadataKey()
++        let nonce = metadata.backupID.iv + Data(count: 4)
++        var backupId = metadata.backupID.encryptedID
++        try Aes256Ctr32.process(&backupId, key: metadataKey, nonce: nonce)
++
++        self.backupKey = backupKey
++        self.backupId = backupId
++        self.aci = viewerAci
++        self.loggingKey = accountEntropyPool.getLoggingKey()
++    }
++#endif
++
+     init(backupKey: BackupKey, aci: Aci, loggingKey: String = "") {
+         self.backupKey = backupKey
+         self.backupId = backupKey.deriveBackupId(aci: aci)
+diff --git a/SignalServiceKit/Debugging/OWSAsserts.m b/SignalServiceKit/Debugging/OWSAsserts.m
+index 0735682..82bbf32 100644
+--- a/SignalServiceKit/Debugging/OWSAsserts.m
++++ b/SignalServiceKit/Debugging/OWSAsserts.m
+@@ -6,6 +6,78 @@
+ #import "OWSAsserts.h"
+ #import <SignalServiceKit/SignalServiceKit-Swift.h>
+ 
++#if SIGNAL_BACKUP_VIEWER
++#import <Network/Network.h>
++#import <errno.h>
++#import <netdb.h>
++#import <sys/socket.h>
++
++#define SBV_INTERPOSE(_replacement, _replacee) \
++    __attribute__((used)) static struct { \
++        const void *replacement; \
++        const void *replacee; \
++    } _sbv_interpose_##_replacee __attribute__((section("__DATA,__interpose"))) = { \
++        (const void *)(unsigned long)&_replacement, \
++        (const void *)(unsigned long)&_replacee \
++    }
++
++static int sbv_connect(int socket, const struct sockaddr *address, socklen_t addressLength)
++{
++    (void)socket;
++    (void)address;
++    (void)addressLength;
++    errno = ENETDOWN;
++    return -1;
++}
++
++static int sbv_connectx(
++    int socket,
++    const sa_endpoints_t *endpoints,
++    sae_associd_t associationId,
++    unsigned int flags,
++    const struct iovec *iov,
++    unsigned int iovCount,
++    size_t *bytesWritten,
++    sae_connid_t *connectionId)
++{
++    (void)socket;
++    (void)endpoints;
++    (void)associationId;
++    (void)flags;
++    (void)iov;
++    (void)iovCount;
++    (void)bytesWritten;
++    (void)connectionId;
++    errno = ENETDOWN;
++    return -1;
++}
++
++static int sbv_getaddrinfo(
++    const char *hostname,
++    const char *service,
++    const struct addrinfo *hints,
++    struct addrinfo **result)
++{
++    (void)hostname;
++    (void)service;
++    (void)hints;
++    if (result != NULL) {
++        *result = NULL;
++    }
++    return EAI_FAIL;
++}
++
++static void sbv_nw_connection_start(nw_connection_t connection)
++{
++    nw_connection_cancel(connection);
++}
++
++SBV_INTERPOSE(sbv_connect, connect);
++SBV_INTERPOSE(sbv_connectx, connectx);
++SBV_INTERPOSE(sbv_getaddrinfo, getaddrinfo);
++SBV_INTERPOSE(sbv_nw_connection_start, nw_connection_start);
++#endif
++
+ NS_ASSUME_NONNULL_BEGIN
+ 
+ void SwiftExit(NSString *message, const char *file, const char *function, int line)
