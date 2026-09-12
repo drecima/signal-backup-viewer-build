@@ -1,0 +1,116 @@
+name: Build Signal Backup Viewer IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/build-signal-viewer.yml"
+      - "viewer/SignalBackupViewer.patch"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signal-backup-viewer
+  cancel-in-progress: true
+
+jobs:
+  build-ipa:
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    env:
+      SIGNAL_TAG: 8.29.0.1861-beta
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
+    steps:
+      - name: Check out build harness
+        uses: actions/checkout@v4
+
+      - name: Check out Signal with public submodules
+        run: |
+          set -euxo pipefail
+          git clone \
+            --branch "$SIGNAL_TAG" \
+            --depth 1 \
+            --recurse-submodules \
+            --shallow-submodules \
+            https://github.com/signalapp/Signal-iOS.git Signal-iOS
+          cd Signal-iOS
+          test "$(git describe --tags --exact-match)" = "$SIGNAL_TAG"
+          git apply --check ../viewer/SignalBackupViewer.patch
+          git apply ../viewer/SignalBackupViewer.patch
+          git diff --check
+
+      - name: Fetch RingRTC
+        working-directory: Signal-iOS
+        run: |
+          set -euxo pipefail
+          make fetch-ringrtc
+
+      - name: Build unsigned viewer
+        working-directory: Signal-iOS
+        run: |
+          set -euxo pipefail
+          xcodebuild \
+            -workspace Signal.xcworkspace \
+            -scheme Signal \
+            -configuration "App Store Release" \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$RUNNER_TEMP/SignalViewerDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            CURRENT_PROJECT_VERSION=1861 \
+            MARKETING_VERSION=8.29 \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) SIGNAL_BACKUP_VIEWER' \
+            GCC_PREPROCESSOR_DEFINITIONS='$(inherited) SIGNAL_BACKUP_VIEWER=1' \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build
+
+      - name: Package unsigned viewer IPA
+        run: |
+          set -euxo pipefail
+          app="$RUNNER_TEMP/SignalViewerDerivedData/Build/Products/App Store Release-iphoneos/Signal.app"
+          test -d "$app"
+          test -f "$app/Signal"
+
+          staging="$RUNNER_TEMP/SignalViewerIPA"
+          mkdir -p "$staging/Payload"
+          ditto "$app" "$staging/Payload/Signal Backup Viewer.app"
+          viewer="$staging/Payload/Signal Backup Viewer.app"
+
+          rm -rf "$viewer/PlugIns" "$viewer/Watch"
+          find "$viewer" -type d -name _CodeSignature -prune -exec rm -rf {} +
+          find "$viewer" -type f -name embedded.mobileprovision -delete
+
+          plutil -replace CFBundleDisplayName -string "Signal Backup Viewer" "$viewer/Info.plist"
+          plutil -replace CFBundleName -string "Signal Backup Viewer" "$viewer/Info.plist"
+          plutil -replace CFBundleIdentifier -string "org.signalbackup.viewer" "$viewer/Info.plist"
+          plutil -replace CFBundleVersion -string 1861 "$viewer/Info.plist"
+
+          test "$(plutil -extract CFBundleIdentifier raw "$viewer/Info.plist")" = "org.signalbackup.viewer"
+          test "$(plutil -extract CFBundleDisplayName raw "$viewer/Info.plist")" = "Signal Backup Viewer"
+          lipo -archs "$viewer/Signal" | grep -qw arm64
+          strings "$viewer/Signal" | grep -q "Copy Backup Editor ID"
+          otool -l "$viewer/Frameworks/SignalServiceKit.framework/SignalServiceKit" | grep -q "__interpose"
+          test ! -e "$viewer/PlugIns"
+
+          output="$GITHUB_WORKSPACE/Signal-Backup-Viewer-8.29-viewer1-unsigned.ipa"
+          cd "$staging"
+          /usr/bin/zip -qry "$output" Payload
+          cd "$GITHUB_WORKSPACE"
+          unzip -t "$output"
+          shasum -a 256 "$(basename "$output")" > "$(basename "$output").sha256"
+
+      - name: Upload viewer IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Signal-Backup-Viewer-8.29-viewer1-unsigned
+          path: |
+            Signal-Backup-Viewer-8.29-viewer1-unsigned.ipa
+            Signal-Backup-Viewer-8.29-viewer1-unsigned.ipa.sha256
+          if-no-files-found: error
+          retention-days: 7
