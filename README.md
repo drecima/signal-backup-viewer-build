@@ -40,25 +40,38 @@ them to the viewer. The viewer's own network paths remain blocked.
 
 ## Build verification
 
-The v0.1 public GitHub Actions build completed successfully on September 12, 2026.
-The v0.2 workflow additionally verifies that the local identity bootstrap is
-present in the compiled binary.
+The public GitHub Actions v0.2 build completed successfully on September 13,
+2026. The workflow verifies that the local identity bootstrap is present in the
+compiled binary.
 
 - Source commit: Signal iOS `f8170e0bf7b2e7fb70bcdfaedd0abe3b5030e8c5`
   (`8.29.0.1861-beta`).
-- Harness commit: `526c1705375fadb13f7ab681a838c9cbfad61d1b`.
-- Workflow run: `34700975904`.
+- Harness commit: `914ca5ddecfd7e568c50c3ced47c549ea66e0649`.
 - Bundle identifier, app name, version, ARM64 architecture, absence of signing
   material/extensions, viewer menu marker, and network interposition section
   were checked after downloading the artifact.
 - IPA SHA-256:
-  `53c7ebe65750c4ea932a6ca3674aa19d94a2fadb74e5b99f33ab5067d1311dc9`.
+  `57a3d0c100d12778d352aa846148fba247d5c545e52f28b16a5c9d2f764bf9c6`.
 
-These checks prove that the intended source compiled and was packaged. Device
-testing is still required to prove launch, import, attachment viewing, and
-effective network isolation under the chosen sideloading environment.
+These checks prove that the intended source compiled and was packaged.
 
-## First device test
+## Device acceptance - passed
+
+The v0.2 IPA has passed the intended device workflow under LiveContainer:
+
+- Installation and launch succeed without an injected network-disabling tweak.
+- Selecting the parent folder containing `SignalBackups` works.
+- A correct recovery key imports the native archive and restores attachments.
+- Note to Self and ordinary one-to-one conversations render normally.
+- Message text, images, generic files, audio, and disappearing-message status
+  items expose exact `sbe1:<dateSent>` editor identifiers.
+- The copied identifiers match SignalBackupEditor records, including
+  attachments and a disappearing-messages-disabled status item.
+- Compose, reply, reaction, edit, delete, forward, pin, selection, read-marking,
+  and other visible history-changing actions are unavailable.
+- Relaunching preserves the imported local archive.
+
+## Installation and use
 
 1. Install/sign the IPA as a separate app. Do not inject Signal tweaks or the
    third-party `NetworkDisabler.dylib`.
@@ -83,9 +96,26 @@ After import, confirm:
 - Long-pressing a message offers **Copy Backup Editor ID**.
 - Relaunching the viewer preserves the imported archive.
 
-This first build should not be trusted with the only copy of a backup. Keep the
-source backup unchanged. The built-in network block replaces the need for an
-unreviewed `NetworkDisabler.dylib`.
+Keep the source backup unchanged. The built-in network block replaces the need
+for an unreviewed `NetworkDisabler.dylib`.
+
+## Security boundary
+
+The source patch statically removes or disables Signal's normal connection
+refresh, registration websocket, one-time-prekey upload, background launch
+jobs, read marking, composers, reaction UI, and mutating message menus. It also
+interposes DNS resolution, BSD `connect`/`connectx`, and Network.framework
+connection starts.
+
+This is a reviewed application-level containment layer, not a formal proof that
+every future Signal or iOS networking implementation must pass through those
+symbols. Keep the viewer isolated from the normal Signal app, do not grant it
+contacts or notification permissions, and retain the original encrypted
+backup. The system Files provider may independently use iCloud to obtain a
+selected encrypted folder.
+
+See [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md) for the complete reviewed boundary
+and residual limitations.
 
 ## Backup Editor ID
 
@@ -96,7 +126,7 @@ such as:
 sbe1:1789135600123
 ```
 
-SignalBackupEditor v0.6.1 accepts this value anywhere `--select` is accepted.
+SignalBackupEditor v0.6.2 accepts this value anywhere `--select` is accepted.
 It resolves the backup's `dateSent` value and refuses zero or multiple matches.
 
 ## Source
