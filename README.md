@@ -1,4 +1,4 @@
-# Signal Backup Viewer v0.1
+# Signal Backup Viewer v0.2
 
 This is an unsigned, experimental iOS build based on Signal iOS
 `8.29.0.1861-beta`. It is intended only for importing and inspecting a local
@@ -22,13 +22,27 @@ Signal backup in an isolated app container.
 - Viewing, copying text, message details, media playback, and local media
   export remain available.
 
+## v0.2 registration-bootstrap fix
+
+The first device test showed that v0.1 reached Signal's normal post-registration
+profile setup before the backup importer. It then failed with `noIdentityKey`
+because the synthetic offline account had never run Signal's account-creation
+prekey bootstrap.
+
+v0.2 now generates and persists local ACI/PNI identity and prekey material using
+Signal's existing registration key generator, while compile-time viewer guards
+skip the restricted websocket and one-time-prekey upload stages. No generated
+key material is transmitted.
+
 The iOS Files provider is a separate operating-system process. If a selected
 backup is stored in iCloud, iOS may download its encrypted files before handing
 them to the viewer. The viewer's own network paths remain blocked.
 
 ## Build verification
 
-The public GitHub Actions build completed successfully on September 12, 2026:
+The v0.1 public GitHub Actions build completed successfully on September 12, 2026.
+The v0.2 workflow additionally verifies that the local identity bootstrap is
+present in the compiled binary.
 
 - Source commit: Signal iOS `f8170e0bf7b2e7fb70bcdfaedd0abe3b5030e8c5`
   (`8.29.0.1861-beta`).
