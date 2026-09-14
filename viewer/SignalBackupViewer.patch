@@ -1,32 +1,24 @@
 diff --git a/Signal/AppLaunch/AppDelegate.swift b/Signal/AppLaunch/AppDelegate.swift
-index add29ce..eaf1d6f 100644
+index add29ce..501e13c 100644
 --- a/Signal/AppLaunch/AppDelegate.swift
 +++ b/Signal/AppLaunch/AppDelegate.swift
 @@ -1399,6 +1399,14 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
              Logger.info("Activated.")
          }
-
+ 
 +#if SIGNAL_BACKUP_VIEWER
 +        if !hasActivated {
 +            hasActivated = true
 +            RTCInitializeSSL()
 +        }
 +        return
-+#else
++#endif
 +
          let tsAccountManager = DependenciesBridge.shared.tsAccountManager
          let registeredState = try? tsAccountManager.registeredStateWithMaybeSneakyTransaction()
-
-@@ -1449,6 +1457,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
-         // [UIApplicationDelegate applicationDidBecomeActive:] is complete.
-         let identityManager = DependenciesBridge.shared.identityManager
-         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { identityManager.tryToSyncQueuedVerificationStates() }
-+#endif
-     }
-
-     // MARK: - Cron
-@@ -1491,6 +1500,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
-
+ 
+@@ -1491,6 +1499,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
+ 
      @MainActor
      private func refreshConnection(isAppActive: Bool) {
 +#if SIGNAL_BACKUP_VIEWER
@@ -34,91 +26,60 @@ index add29ce..eaf1d6f 100644
 +        cronTask?.cancel()
 +        cronTask = nil
 +        return
-+#else
-         let chatConnectionManager = DependenciesBridge.shared.chatConnectionManager
-
-         let oldActiveConnectionTokens = self.activeConnectionTokens
-@@ -1562,6 +1577,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
-                 },
-             )
-         }
 +#endif
-     }
-
-     /// Run our various expiration jobs. Callers who add a new "expiring
+         let chatConnectionManager = DependenciesBridge.shared.chatConnectionManager
+ 
+         let oldActiveConnectionTokens = self.activeConnectionTokens
 diff --git a/Signal/AppLaunch/LaunchJobs.swift b/Signal/AppLaunch/LaunchJobs.swift
-index 6b178cb..6e3ea28 100644
+index 6b178cb..36473b1 100644
 --- a/Signal/AppLaunch/LaunchJobs.swift
 +++ b/Signal/AppLaunch/LaunchJobs.swift
 @@ -8,6 +8,9 @@ import SignalServiceKit
-
+ 
  enum LaunchJobs {
      static func run(databaseStorage: SDSDatabaseStorage) async {
 +#if SIGNAL_BACKUP_VIEWER
 +        return
-+#else
++#endif
          // Getting this work done ASAP is super high priority since we won't finish
          // launching until the completion block is fired.
          //
-@@ -23,5 +26,6 @@ enum LaunchJobs {
-         // calls that were not connected, failed or hung up before the app existed
-         // should be marked as missed.
-         await IncompleteCallsJob().run(databaseStorage: databaseStorage)
-+#endif
-     }
- }
 diff --git a/Signal/ConversationView/ConversationViewController+BottomBar.swift b/Signal/ConversationView/ConversationViewController+BottomBar.swift
-index e8079cb..19000d6 100644
+index e8079cb..57afdc2 100644
 --- a/Signal/ConversationView/ConversationViewController+BottomBar.swift
 +++ b/Signal/ConversationView/ConversationViewController+BottomBar.swift
 @@ -65,6 +65,9 @@ public extension ConversationViewController {
          let tsAccountManager = DependenciesBridge.shared.tsAccountManager
-
+ 
          bottomViewType = { () -> CVCBottomViewType in
 +#if SIGNAL_BACKUP_VIEWER
 +            return .none
-+#else
++#endif
              // The ordering of this method determines
              // precedence of the bottom views.
-
-@@ -127,6 +130,7 @@ public extension ConversationViewController {
-                 return .announcementOnlyGroup
-             }
-             return .inputToolbar
-+#endif
-         }()
-     }
-
+ 
 diff --git a/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift b/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
-index 80305a2..af7ccb8 100644
+index 80305a2..53e4e6e 100644
 --- a/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
 +++ b/Signal/ConversationView/ConversationViewController+CVComponentDelegate.swift
 @@ -331,6 +331,10 @@ extension ConversationViewController: CVComponentDelegate {
      public func shouldAllowMessageSendActionsForItem(_ itemViewModel: CVItemViewModelImpl) -> Bool {
          AssertIsOnMainThread()
-
+ 
 +#if SIGNAL_BACKUP_VIEWER
 +        return false
-+#else
++#endif
 +
          if thread.isGroupThread, !thread.isLocalUserFullMemberOfThread {
              return false
          }
-@@ -369,6 +373,7 @@ extension ConversationViewController: CVComponentDelegate {
-         }
-
-         return true
-+#endif
-     }
-
-     public func didTapReactions(
 diff --git a/Signal/ConversationView/ConversationViewController+MessageActions.swift b/Signal/ConversationView/ConversationViewController+MessageActions.swift
 index 383d05f..b63889c 100644
 --- a/Signal/ConversationView/ConversationViewController+MessageActions.swift
 +++ b/Signal/ConversationView/ConversationViewController+MessageActions.swift
 @@ -164,6 +164,7 @@ extension ConversationViewController: ContextMenuInteractionDelegate {
          var accessories = cell.rootComponent?.contextMenuAccessoryViews(componentView: componentView) ?? []
-
+ 
          // Add reaction bar if necessary
 +#if !SIGNAL_BACKUP_VIEWER
          if thread.canSendReactionToThread, shouldShowReactionPickerForInteraction(contextInteraction.itemViewModel.interaction) {
@@ -129,38 +90,31 @@ index 383d05f..b63889c 100644
              accessories.append(reactionBarAccessory)
          }
 +#endif
-
+ 
          var alignment: ContextMenuTargetedPreview.Alignment = .center
          let interactionType = contextInteraction.itemViewModel.interaction.interactionType
 diff --git a/Signal/ConversationView/ConversationViewController+Misc.swift b/Signal/ConversationView/ConversationViewController+Misc.swift
-index cc3e33e..262e99c 100644
+index cc3e33e..0807a85 100644
 --- a/Signal/ConversationView/ConversationViewController+Misc.swift
 +++ b/Signal/ConversationView/ConversationViewController+Misc.swift
 @@ -467,6 +467,10 @@ extension ConversationViewController {
      public func markVisibleMessagesAsRead(caller: String = #function) {
          AssertIsOnMainThread()
-
+ 
 +#if SIGNAL_BACKUP_VIEWER
 +        return
-+#else
++#endif
 +
          guard
              let navigationController,
              navigationController.topViewController === self
-@@ -511,5 +515,6 @@ extension ConversationViewController {
-                 // be reinvoked in < 100ms.
-             }
-         }
-+#endif
-     }
- }
 diff --git a/Signal/ConversationView/MessageActions.swift b/Signal/ConversationView/MessageActions.swift
-index b6c455c..ddc225f 100644
+index b6c455c..ab98dd2 100644
 --- a/Signal/ConversationView/MessageActions.swift
 +++ b/Signal/ConversationView/MessageActions.swift
 @@ -23,6 +23,21 @@ protocol MessageActionsDelegate: AnyObject {
  // MARK: -
-
+ 
  enum MessageActionBuilder {
 +#if SIGNAL_BACKUP_VIEWER
 +    static func copyBackupEditorId(itemViewModel: CVItemViewModelImpl) -> MessageAction {
@@ -181,9 +135,9 @@ index b6c455c..ddc225f 100644
          return MessageAction(
              .reply,
 @@ -232,6 +247,31 @@ enum MessageActionBuilder {
-
+ 
  class MessageActions {
-
+ 
 +#if SIGNAL_BACKUP_VIEWER
 +    private class func viewerActions(
 +        itemViewModel: CVItemViewModelImpl,
@@ -214,129 +168,126 @@ index b6c455c..ddc225f 100644
              return true
 @@ -245,6 +285,9 @@ class MessageActions {
      }
-
+ 
      class func textActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true)
-+#else
-         var actions: [MessageAction] = []
-
-         let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
-@@ -303,9 +346,13 @@ class MessageActions {
-         }
-
-         return actions
 +#endif
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
+@@ -306,6 +349,9 @@ class MessageActions {
      }
-
+ 
      class func mediaActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true, includeMediaExport: true)
-+#else
-         var actions: [MessageAction] = []
-
-         let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
-@@ -356,9 +403,13 @@ class MessageActions {
-         }
-
-         return actions
 +#endif
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
+@@ -359,6 +405,9 @@ class MessageActions {
      }
-
+ 
      class func quotedMessageActions(itemViewModel: CVItemViewModelImpl, shouldAllowMessageSendActions: Bool, delegate: MessageActionsDelegate) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeTextCopy: true)
-+#else
++#endif
          var actions: [MessageAction] = []
-
+ 
          let showDetailsAction = MessageActionBuilder.showDetails(itemViewModel: itemViewModel, delegate: delegate)
-@@ -404,6 +455,7 @@ class MessageActions {
-         }
-
-         return actions
-+#endif
-     }
-
-     class func paymentActions(
-@@ -411,6 +463,9 @@ class MessageActions {
+@@ -411,6 +460,9 @@ class MessageActions {
          shouldAllowMessageSendActions: Bool,
          delegate: MessageActionsDelegate,
      ) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate)
-+#else
-         var actions: [MessageAction] = []
-
-         let showDetailsAction = MessageActionBuilder.showDetails(
-@@ -459,6 +514,7 @@ class MessageActions {
-             actions.append(pinAction)
-         }
-         return actions
 +#endif
-     }
-
-     class func pollActions(
-@@ -466,6 +522,9 @@ class MessageActions {
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(
+@@ -466,6 +518,9 @@ class MessageActions {
          shouldAllowMessageSendActions: Bool,
          delegate: MessageActionsDelegate,
      ) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate)
-+#else
-         var actions: [MessageAction] = []
-
-         let showDetailsAction = MessageActionBuilder.showDetails(
-@@ -519,11 +578,16 @@ class MessageActions {
-         }
-
-         return actions
 +#endif
+         var actions: [MessageAction] = []
+ 
+         let showDetailsAction = MessageActionBuilder.showDetails(
+@@ -522,6 +577,9 @@ class MessageActions {
      }
-
+ 
      class func infoMessageActions(itemViewModel: CVItemViewModelImpl, delegate: MessageActionsDelegate) -> [MessageAction] {
 +#if SIGNAL_BACKUP_VIEWER
 +        return viewerActions(itemViewModel: itemViewModel, delegate: delegate, includeDetails: false)
-+#else
++#endif
          let deleteAction = MessageActionBuilder.deleteMessage(itemViewModel: itemViewModel, delegate: delegate)
          let selectAction = MessageActionBuilder.selectMessage(itemViewModel: itemViewModel, delegate: delegate)
          return [deleteAction, selectAction]
-+#endif
-     }
- }
 diff --git a/Signal/Registration/RegistrationCoordinatorImpl.swift b/Signal/Registration/RegistrationCoordinatorImpl.swift
-index 36ed9b5..c2a4319 100644
+index 36ed9b5..1307598 100644
 --- a/Signal/Registration/RegistrationCoordinatorImpl.swift
 +++ b/Signal/Registration/RegistrationCoordinatorImpl.swift
-@@ -658,6 +658,19 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
-
+@@ -658,6 +658,44 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+ 
                  fileUrl = chosenBackup.appendingPathComponent(LocalFileBackupManager.FileStructure.backupFile.rawValue)
-
+ 
 +#if SIGNAL_BACKUP_VIEWER
 +                let metadataData = try Data(contentsOf: chosenBackup.appendingPathComponent(
 +                    LocalFileBackupManager.FileStructure.metadataFile.rawValue,
 +                ))
-+                let localBackupKey = try MessageRootBackupKey(
++                var localBackupKey = try MessageRootBackupKey(
 +                    accountEntropyPool: accountEntropyPool,
 +                    localBackupMetadataData: metadataData,
 +                    viewerAci: identity.aci,
 +                )
++                var restoreIdentity = identity
++                if let originalAci = try await self.deps.backupArchiveManager.inferLocalAciForViewer(
++                    fileUrl: fileUrl,
++                    source: .local(key: localBackupKey),
++                    logger: self.logger,
++                ) {
++                    restoreIdentity = AccountIdentity(
++                        aci: originalAci,
++                        pni: identity.pni,
++                        e164: identity.e164,
++                        hasPreviouslyUsedSVR: identity.hasPreviouslyUsedSVR,
++                        authPassword: identity.authPassword,
++                    )
++                    localBackupKey = try MessageRootBackupKey(
++                        accountEntropyPool: accountEntropyPool,
++                        localBackupMetadataData: metadataData,
++                        viewerAci: originalAci,
++                    )
++                    await self.db.awaitableWrite { tx in
++                        self.updatePersistedState(tx) {
++                            $0.accountIdentity = restoreIdentity
++                        }
++                    }
++                }
 +#else
 +                let localBackupKey = backupKey
++                let restoreIdentity = identity
 +#endif
 +
                  downloadProgress?.addSource(withLabel: "", unitCount: 1).complete()
                  // The recovery key has been derived, the backup file has been sourced,
                  // so this is the last possible point before we commit to importing the backup.
-@@ -673,7 +686,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -671,9 +709,9 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+ 
+                 try await self.deps.backupArchiveManager.importEncryptedBackup(
                      fileUrl: fileUrl,
-                     localIdentifiers: identity.localIdentifiers,
+-                    localIdentifiers: identity.localIdentifiers,
++                    localIdentifiers: restoreIdentity.localIdentifiers,
                      isPrimaryDevice: true,
 -                    source: .local(key: backupKey),
 +                    source: .local(key: localBackupKey),
                      progress: importProgress,
                      logger: self.logger,
                  )
-@@ -1501,6 +1514,21 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -1501,6 +1539,21 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
          accountIdentity: AccountIdentity,
          block: (DBWriteTransaction) -> Void = { _ in },
      ) async {
@@ -354,79 +305,47 @@ index 36ed9b5..c2a4319 100644
 +        }
 +        await finish(accountIdentity: accountIdentity)
 +        return
-+#else
++#endif
          await db.awaitableWrite { tx in
              if needsToScheduleRestoreFromSVRB() {
                  deps.backupArchiveManager.scheduleRestoreFromSVRBBeforeNextExport(tx: tx)
-@@ -1552,6 +1580,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
-         )
-
-         await finish(accountIdentity: accountIdentity)
-+#endif
-     }
-
-     private func lastLocalBackupDates(
-@@ -3629,6 +3658,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
-     private func nextStepForProfileSetup(
-         _ accountIdentity: AccountIdentity,
-     ) async -> RegistrationStep {
-+#if !SIGNAL_BACKUP_VIEWER
-         switch mode {
-         case .registering, .reRegistering:
-             if !inMemoryState.hasOpenedConnection {
-@@ -3647,8 +3677,12 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
-             await finish(accountIdentity: accountIdentity)
-             return .done
+@@ -3814,9 +3867,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+             finalizeProgress = nil
          }
-+#else
-+        logger.info("[Viewer] Skipping restricted websocket setup")
-+#endif
-
-         // We _must_ do these steps first.
-+#if !SIGNAL_BACKUP_VIEWER
-         if shouldRefreshOneTimePreKeys() {
-             // After atomic account creation, our account is ready to go from the start.
-             // But we should still upload one-time prekeys, as that is not part
-@@ -3674,6 +3708,9 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
-                 return .showErrorSheet(.genericError)
-             }
+ 
++        let effectiveAccountIdentity = persistedState.accountIdentity ?? accountIdentity
++
+         if let localUsernameState = shouldAttemptToReclaimUsername() {
+             return await reclaimUsername(
+-                accountIdentity: accountIdentity,
++                accountIdentity: effectiveAccountIdentity,
+                 localUsernameState: localUsernameState,
+             )
          }
-+#else
-+        logger.info("[Viewer] Skipping one-time prekey upload")
-+#endif
-
-         if
-             shouldRestoreFromStorageServiceBeforeUpdatingSVR(),
-@@ -4367,9 +4404,13 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -3826,7 +3881,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+         let finalStep = {
+             await self.exportAndWipeState(
+                 accountEntropyPool: accountEntropyPool,
+-                accountIdentity: accountIdentity,
++                accountIdentity: effectiveAccountIdentity,
+             )
+         }
+ 
+@@ -4367,6 +4422,9 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
      // MARK: - Permissions
-
+ 
      private func requiresSystemPermissions() async -> Bool {
 +#if SIGNAL_BACKUP_VIEWER
 +        return false
-+#else
++#endif
          let needsContactAuthorization = deps.contactsStore.needsContactsAuthorization()
          let needsNotificationAuthorization = await deps.pushRegistrationManager.needsNotificationAuthorization()
          return needsContactAuthorization || needsNotificationAuthorization
-+#endif
-     }
-
-     // MARK: - Register/Change Number Requests
-@@ -4401,6 +4442,27 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -4401,6 +4459,16 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
              fallthrough
-
+ 
          case .registering:
 +#if SIGNAL_BACKUP_VIEWER
-+            let prekeyBundles = await deps.preKeyManager.createPreKeysForRegistration()
-+            await deps.preKeyManager.finalizeRegistrationPreKeys(
-+                prekeyBundles,
-+                uploadDidSucceed: true,
-+            )
-+            db.write { tx in
-+                self.updatePersistedState(tx) {
-+                    $0.didRefreshOneTimePreKeys = true
-+                }
-+            }
-+            logger.info("[Viewer] Created and persisted local-only identity key material")
 +            let viewerIdentity = AccountIdentity(
 +                aci: Aci(fromUUID: UUID(uuidString: "53424556-4945-4000-8000-000000000001")!),
 +                pni: Pni(fromUUID: UUID(uuidString: "53424556-4945-4000-8000-000000000002")!),
@@ -435,42 +354,113 @@ index 36ed9b5..c2a4319 100644
 +                authPassword: "offline-viewer-no-server-auth",
 +            )
 +            return await responseHandler(.success(viewerIdentity))
-+#else
++#endif
              // The auth token we use going forwards for chat server auth headers
              // is generated by the client. We do that here and put it on the
              // AccountIdentity we generate after success so that we eventually
-@@ -4452,6 +4514,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
-             } catch {
-                 return .showErrorSheet(.genericError)
-             }
-+#endif
-
-         case .changingNumber(let changeNumberState):
-             if let pniState = changeNumberState.pniState {
 diff --git a/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift b/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift
-index dbfb0e2..b69b8fc 100644
---- a/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift
-+++ b/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift
+index dbfb0e2..5e11100 100644
+--- a/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift	
++++ b/Signal/src/ViewControllers/HomeView/Chat List/ChatListViewController.swift	
 @@ -778,6 +778,11 @@ public class ChatListViewController: OWSViewController, HomeTabViewController {
      private func updateRightBarButtonItems() {
          guard viewState.chatListMode == .inbox, !viewState.multiSelectState.isActive else { return }
-
+ 
 +#if SIGNAL_BACKUP_VIEWER
 +        navigationItem.rightBarButtonItems = []
 +        return
-+#else
++#endif
 +
          var rightBarButtonItems = [UIBarButtonItem]()
-
+ 
          let compose = UIBarButtonItem.button(icon: .buttonCompose) { [weak self] in
-@@ -805,6 +810,7 @@ public class ChatListViewController: OWSViewController, HomeTabViewController {
-         }
-
-         navigationItem.rightBarButtonItems = rightBarButtonItems
+diff --git a/Signal/src/ViewControllers/LongTextViewController.swift b/Signal/src/ViewControllers/LongTextViewController.swift
+index 56808a9..2bbe5b1 100644
+--- a/Signal/src/ViewControllers/LongTextViewController.swift
++++ b/Signal/src/ViewControllers/LongTextViewController.swift
+@@ -39,8 +39,10 @@ class LongTextViewController: OWSViewController {
+         let toolbar = UIToolbar()
+         toolbar.items = [
+             .button(icon: .buttonShare) { [weak self] in self?.shareButtonPressed() },
++#if !SIGNAL_BACKUP_VIEWER
+             .flexibleSpace(),
+             .button(icon: .buttonForward) { [weak self] in self?.forwardButtonPressed() },
 +#endif
+         ]
+         if #unavailable(iOS 26) {
+             toolbar.tintColor = Theme.primaryIconColor
+diff --git a/Signal/src/ViewControllers/MediaGallery/MediaControlPanelView.swift b/Signal/src/ViewControllers/MediaGallery/MediaControlPanelView.swift
+index 5aa9f61..c9a86a3 100644
+--- a/Signal/src/ViewControllers/MediaGallery/MediaControlPanelView.swift
++++ b/Signal/src/ViewControllers/MediaGallery/MediaControlPanelView.swift
+@@ -358,7 +358,9 @@ class MediaControlPanelView: UIView {
+         }
+ 
+         contentView.addSubview(thumbnailStrip)
++#if !SIGNAL_BACKUP_VIEWER
+         contentView.addSubview(buttonForwardMedia)
++#endif
+         contentView.addSubview(buttonShareMedia)
+ 
+         // Constraints with non-required priority allow us to shrink height of the corresponding layout guide
+@@ -392,6 +394,7 @@ class MediaControlPanelView: UIView {
+                 return constraint
+             }(),
+ 
++#if !SIGNAL_BACKUP_VIEWER
+             buttonForwardMedia.topAnchor.constraint(equalTo: buttonArea.topAnchor),
+             buttonForwardMedia.widthAnchor.constraint(equalTo: buttonForwardMedia.heightAnchor),
+             buttonForwardMedia.trailingAnchor.constraint(equalTo: buttonArea.trailingAnchor),
+@@ -400,6 +403,7 @@ class MediaControlPanelView: UIView {
+                 constraint.priority = .defaultHigh + 100
+                 return constraint
+             }(),
++#endif
+         ])
+ 
+         // TODO: Add "Read More"
+@@ -1034,7 +1038,9 @@ class MediaControlPanelView: UIView {
      }
-
-     func showNewConversationView() {
+ 
+     private func updateBottomButtonsLayout() {
++#if !SIGNAL_BACKUP_VIEWER
+         buttonForwardMedia.isHidden = isVerticallyCompactLayout
++#endif
+         buttonShareMedia.isHidden = isVerticallyCompactLayout
+         buttonAreaZeroHeightConstraint.isActive = isVerticallyCompactLayout
+     }
+diff --git a/Signal/src/ViewControllers/MediaGallery/MediaPageViewController.swift b/Signal/src/ViewControllers/MediaGallery/MediaPageViewController.swift
+index dbd9704..4577780 100644
+--- a/Signal/src/ViewControllers/MediaGallery/MediaPageViewController.swift
++++ b/Signal/src/ViewControllers/MediaGallery/MediaPageViewController.swift
+@@ -372,7 +372,11 @@ class MediaPageViewController: UIPageViewController {
+ 
+         if traitCollection.verticalSizeClass == .compact {
+             // Order of buttons is reversed: first button in array is the outermost in the navbar.
++#if SIGNAL_BACKUP_VIEWER
++            navigationItem.rightBarButtonItems = [buildContextMenuBarButton(), barButtonShareMedia]
++#else
+             navigationItem.rightBarButtonItems = [buildContextMenuBarButton(), barButtonForwardMedia, barButtonShareMedia]
++#endif
+         } else {
+             navigationItem.rightBarButtonItems = [buildContextMenuBarButton()]
+         }
+@@ -406,6 +410,7 @@ class MediaPageViewController: UIPageViewController {
+                     self?.presentConversationForCurrentMedia()
+                 },
+             ),
++#if !SIGNAL_BACKUP_VIEWER
+             UIAction(
+                 title: OWSLocalizedString(
+                     "MEDIA_VIEWER_DELETE_MEDIA_ACTION",
+@@ -417,6 +422,7 @@ class MediaPageViewController: UIPageViewController {
+                     self?.deleteCurrentMedia()
+                 },
+             ),
++#endif
+         ])
+     }
+ 
 diff --git a/Signal/src/ViewControllers/MessageActionsToolbar.swift b/Signal/src/ViewControllers/MessageActionsToolbar.swift
 index ff39774..3acc0e6 100644
 --- a/Signal/src/ViewControllers/MessageActionsToolbar.swift
@@ -480,7 +470,7 @@ index ff39774..3acc0e6 100644
          case pin
          case unpin
 +        case backupEditorId
-
+ 
          /// Lower priority numbers indicate an action should be shown earlier.
          var priority: Int {
 @@ -49,6 +50,7 @@ public class MessageAction: NSObject {
@@ -500,6 +490,167 @@ index ff39774..3acc0e6 100644
              }
          }()
          return Theme.iconImage(icon)
+diff --git a/Signal/src/ViewControllers/Stickers/StickerPackViewController.swift b/Signal/src/ViewControllers/Stickers/StickerPackViewController.swift
+index bb4b7c7..f06d9c8 100644
+--- a/Signal/src/ViewControllers/Stickers/StickerPackViewController.swift
++++ b/Signal/src/ViewControllers/Stickers/StickerPackViewController.swift
+@@ -52,7 +52,9 @@ class StickerPackViewController: OWSViewController, StickerPackDataSourceDelegat
+                 self?.dismissButtonPressed()
+             },
+             UIBarButtonItem.flexibleSpace(),
++#if !SIGNAL_BACKUP_VIEWER
+             shareBarButtonItem,
++#endif
+         ]
+         if #unavailable(iOS 26) {
+             toolbar.tintColor = Theme.darkThemeLegacyPrimaryIconColor
+diff --git a/SignalServiceKit/Backups/Archiving/BackupArchiveManager.swift b/SignalServiceKit/Backups/Archiving/BackupArchiveManager.swift
+index a179eb2..54c2a2d 100644
+--- a/SignalServiceKit/Backups/Archiving/BackupArchiveManager.swift
++++ b/SignalServiceKit/Backups/Archiving/BackupArchiveManager.swift
+@@ -85,6 +85,16 @@ public protocol BackupArchiveManager {
+         logger: PrefixedLogger,
+     ) async throws
+ 
++#if SIGNAL_BACKUP_VIEWER
++    /// Local backup files do not carry an explicit local ACI. Infer it only
++    /// when group membership and contact recipients identify one unique value.
++    func inferLocalAciForViewer(
++        fileUrl: URL,
++        source: BackupImportSource,
++        logger: PrefixedLogger,
++    ) async throws -> Aci?
++#endif
++
+ #if TESTABLE_BUILD
+     /// Import a backup from the plaintext binary file at the given local URL.
+     func importPlaintextBackupForTests(
+@@ -103,3 +113,15 @@ public protocol BackupArchiveManager {
+     /// and will block on a completing the SVRB fetch before beginning the export.
+     func scheduleRestoreFromSVRBBeforeNextExport(tx: DBWriteTransaction)
+ }
++
++#if SIGNAL_BACKUP_VIEWER
++public extension BackupArchiveManager {
++    func inferLocalAciForViewer(
++        fileUrl: URL,
++        source: BackupImportSource,
++        logger: PrefixedLogger,
++    ) async throws -> Aci? {
++        return nil
++    }
++}
++#endif
+diff --git a/SignalServiceKit/Backups/Archiving/BackupArchiveManagerImpl.swift b/SignalServiceKit/Backups/Archiving/BackupArchiveManagerImpl.swift
+index 4ad7fe7..c39d677 100644
+--- a/SignalServiceKit/Backups/Archiving/BackupArchiveManagerImpl.swift
++++ b/SignalServiceKit/Backups/Archiving/BackupArchiveManagerImpl.swift
+@@ -794,6 +794,105 @@ public class BackupArchiveManagerImpl: BackupArchiveManager {
+         )
+     }
+ 
++#if SIGNAL_BACKUP_VIEWER
++    public func inferLocalAciForViewer(
++        fileUrl: URL,
++        source: BackupImportSource,
++        logger: PrefixedLogger,
++    ) async throws -> Aci? {
++        let backupEncryptionKey = try await source.deriveBackupEncryptionKeyWithSVRBIfNeeded(
++            backupRequestManager: backupRequestManager,
++            db: db,
++            libsignalNet: libsignalNet,
++            nonceStore: backupNonceMetadataStore,
++            logger: logger,
++        )
++
++        return try db.read { tx in
++            let stream: BackupArchiveProtoInputStream
++            switch encryptedStreamProvider.openEncryptedInputFileStream(
++                fileUrl: fileUrl,
++                source: source,
++                backupEncryptionKey: backupEncryptionKey,
++                frameRestoreProgress: nil,
++                tx: tx,
++            ) {
++            case .success(let protoStream, _):
++                stream = protoStream
++            case .fileNotFound:
++                throw OWSAssertionError("Viewer identity preflight file not found")
++            case .unableToOpenFileStream:
++                throw OWSAssertionError("Unable to open viewer identity preflight stream")
++            case .hmacValidationFailedOnEncryptedFile:
++                throw OWSAssertionError("Viewer identity preflight HMAC validation failed")
++            }
++            defer { stream.closeFileStream() }
++
++            var hasMoreFrames: Bool
++            switch stream.readHeader() {
++            case .success(_, let moreBytesAvailable):
++                hasMoreFrames = moreBytesAvailable
++            case .emptyFinalFrame, .invalidByteLengthDelimiter:
++                throw OWSAssertionError("Invalid viewer identity preflight header")
++            case .protoDeserializationError(let error):
++                throw error
++            }
++
++            var contactAcis = Set<Aci>()
++            var groupMemberSets = [Set<Aci>]()
++
++            while hasMoreFrames {
++                let frame: BackupProto_Frame
++                switch stream.readFrame() {
++                case .success(let decodedFrame, let moreBytesAvailable):
++                    frame = decodedFrame
++                    hasMoreFrames = moreBytesAvailable
++                case .emptyFinalFrame:
++                    hasMoreFrames = false
++                    continue
++                case .invalidByteLengthDelimiter:
++                    throw OWSAssertionError("Invalid viewer identity preflight frame length")
++                case .protoDeserializationError(let error):
++                    throw error
++                }
++
++                guard case .recipient(let recipient)? = frame.item else { continue }
++                switch recipient.destination {
++                case .contact(let contact) where contact.hasAci:
++                    if let aci = try? Aci.parseFrom(serviceIdBinary: contact.aci) {
++                        contactAcis.insert(aci)
++                    }
++                case .group(let group) where group.hasSnapshot:
++                    let memberAcis = Set(group.snapshot.members.compactMap {
++                        try? Aci.parseFrom(serviceIdBinary: $0.userID)
++                    })
++                    if !memberAcis.isEmpty {
++                        groupMemberSets.append(memberAcis)
++                    }
++                default:
++                    continue
++                }
++            }
++
++            let nonContactMembers = groupMemberSets.map { $0.subtracting(contactAcis) }
++            guard var candidates = nonContactMembers.first else {
++                logger.warn("[Viewer] No group membership evidence for the original local ACI")
++                return nil
++            }
++            for groupCandidates in nonContactMembers.dropFirst() {
++                candidates.formIntersection(groupCandidates)
++            }
++            guard candidates.count == 1, let localAci = candidates.first else {
++                logger.warn("[Viewer] Original local ACI inference was ambiguous; candidates=\(candidates.count)")
++                throw OWSAssertionError("Unable to identify the original local account unambiguously")
++            }
++
++            logger.info("[Viewer] Recovered original local ACI from backup relationships")
++            return localAci
++        }
++    }
++#endif
++
+ #if TESTABLE_BUILD
+     public func importPlaintextBackupForTests(
+         fileUrl: URL,
 diff --git a/SignalServiceKit/Backups/MessageRootBackupKey.swift b/SignalServiceKit/Backups/MessageRootBackupKey.swift
 index b7cd872..9e766eb 100644
 --- a/SignalServiceKit/Backups/MessageRootBackupKey.swift
@@ -507,7 +658,7 @@ index b7cd872..9e766eb 100644
 @@ -19,6 +19,37 @@ public struct MessageRootBackupKey: BackupKeyMaterial {
          self.init(backupKey: backupKey, aci: aci, loggingKey: accountEntropyPool.getLoggingKey())
      }
-
+ 
 +#if SIGNAL_BACKUP_VIEWER
 +    /// Local backups carry their backup ID encrypted in the adjacent metadata file.
 +    /// The viewer uses that value so importing does not depend on a registered ACI.
@@ -549,7 +700,7 @@ index 0735682..82bbf32 100644
 @@ -6,6 +6,78 @@
  #import "OWSAsserts.h"
  #import <SignalServiceKit/SignalServiceKit-Swift.h>
-
+ 
 +#if SIGNAL_BACKUP_VIEWER
 +#import <Network/Network.h>
 +#import <errno.h>
@@ -623,5 +774,5 @@ index 0735682..82bbf32 100644
 +#endif
 +
  NS_ASSUME_NONNULL_BEGIN
-
+ 
  void SwiftExit(NSString *message, const char *file, const char *function, int line)
