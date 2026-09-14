@@ -188,6 +188,7 @@ audit:
 
 - [v1.0 roadmap](editor/ROADMAP.md)
 - [Backup-format coverage inventory](editor/FORMAT_COVERAGE.md)
+- [v1.0 construction specification](editor/V1_CONSTRUCTION_SPEC.md)
 - [Device acceptance procedure](editor/DEVICE_ACCEPTANCE.md)
 
 The preserved v0.12.1 editor package is the required source baseline. Import
