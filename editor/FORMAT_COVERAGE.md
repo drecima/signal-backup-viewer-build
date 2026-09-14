@@ -171,3 +171,31 @@ edits that appear unrelated to recipients.
 The schema audit is complete only when every protobuf field in the pinned files
 maps to a documented state and the test suite proves preservation of unknown
 fields.
+
+## Signal iOS importer constraints
+
+The pinned Signal iOS importer defines additional semantic failures in
+`BackupArchive+Errors.swift`. The editor must reject these combinations before
+writing, even when the protobuf wire data is syntactically valid.
+
+| Area | Required construction checks |
+|---|---|
+| Author and direction | An incoming message cannot be authored by Self; a Note to Self item cannot use a non-Self author; incoming, outgoing and directionless details must match the message kind and destination chat |
+| Quotes | Quote authors must resolve; a normal quote must contain quoted text or attachments; quote timestamps must identify a valid target when target linkage is required |
+| Link previews | A preview requires a URL, and the URL must occur in the message body; preview-image pointers must satisfy ordinary attachment validation |
+| Reactions | Author/address and sent timestamp must be valid; reaction references and ordering must remain internally consistent |
+| Revisions | Only supported message types may carry revisions; nested revisions must retain the expected direction details and ordering |
+| Story replies | A direct story reply requires a valid ACI, cannot be empty and cannot be constructed in a group thread |
+| Polls | Questions and options must be non-empty and within Signal limits; votes must reference valid voters/options and must not violate repeated-vote rules |
+| Pins | Target timestamp and author must resolve; pin state must remain within Signal's maximum pinned-message rules |
+| Attachments | Client UUIDs and pointer data must be valid; long-text messages require the corresponding long-text attachment representation |
+| Content size | Standard messages cannot be empty or exceed importer limits unless represented through the supported long-text path |
+| Calls and updates | Call records must use a compatible thread/recipient type; ad-hoc calls require a call-link recipient; group updates cannot be empty |
+| Identifiers | ACI, PNI, service ID, E164, profile key and contact-identity data must decode and must not collide with existing records |
+| Contacts and chats | Contacts require a usable identifier; a non-Self contact cannot claim local identifiers; custom chat colors and gradients must meet Signal's component/count rules |
+| Distribution lists and payments | Distribution-list membership/privacy constraints must hold; payment notifications cannot be synthesized in group chats |
+
+These rules are a minimum list derived from the pinned importer's public error
+enum, not a substitute for running Signal's complete importer and libsignal
+validator. Every new constructor should have at least one valid fixture and one
+fixture for each relevant rejected combination.
