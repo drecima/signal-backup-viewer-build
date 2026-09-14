@@ -375,25 +375,32 @@ index dbfb0e2..5e11100 100644
  
          let compose = UIBarButtonItem.button(icon: .buttonCompose) { [weak self] in
 diff --git a/Signal/src/ViewControllers/LongTextViewController.swift b/Signal/src/ViewControllers/LongTextViewController.swift
-index 56808a9..2bbe5b1 100644
+index 56808a9..831351a 100644
 --- a/Signal/src/ViewControllers/LongTextViewController.swift
 +++ b/Signal/src/ViewControllers/LongTextViewController.swift
-@@ -39,8 +39,10 @@ class LongTextViewController: OWSViewController {
+@@ -37,11 +37,17 @@ class LongTextViewController: OWSViewController {
+ 
+     private lazy var toolbar: UIToolbar = {
          let toolbar = UIToolbar()
++#if SIGNAL_BACKUP_VIEWER
++        toolbar.items = [
++            .button(icon: .buttonShare) { [weak self] in self?.shareButtonPressed() },
++        ]
++#else
          toolbar.items = [
              .button(icon: .buttonShare) { [weak self] in self?.shareButtonPressed() },
-+#if !SIGNAL_BACKUP_VIEWER
              .flexibleSpace(),
              .button(icon: .buttonForward) { [weak self] in self?.forwardButtonPressed() },
-+#endif
          ]
++#endif
          if #unavailable(iOS 26) {
              toolbar.tintColor = Theme.primaryIconColor
+             toolbar.setShadowImage(UIImage(), forToolbarPosition: .any)
 diff --git a/Signal/src/ViewControllers/MediaGallery/MediaControlPanelView.swift b/Signal/src/ViewControllers/MediaGallery/MediaControlPanelView.swift
-index 5aa9f61..c9a86a3 100644
+index 5aa9f61..669b465 100644
 --- a/Signal/src/ViewControllers/MediaGallery/MediaControlPanelView.swift
 +++ b/Signal/src/ViewControllers/MediaGallery/MediaControlPanelView.swift
-@@ -358,7 +358,9 @@ class MediaControlPanelView: UIView {
+@@ -358,13 +358,15 @@ class MediaControlPanelView: UIView {
          }
  
          contentView.addSubview(thumbnailStrip)
@@ -403,23 +410,34 @@ index 5aa9f61..c9a86a3 100644
          contentView.addSubview(buttonShareMedia)
  
          // Constraints with non-required priority allow us to shrink height of the corresponding layout guide
-@@ -392,6 +394,7 @@ class MediaControlPanelView: UIView {
-                 return constraint
-             }(),
- 
-+#if !SIGNAL_BACKUP_VIEWER
-             buttonForwardMedia.topAnchor.constraint(equalTo: buttonArea.topAnchor),
-             buttonForwardMedia.widthAnchor.constraint(equalTo: buttonForwardMedia.heightAnchor),
-             buttonForwardMedia.trailingAnchor.constraint(equalTo: buttonArea.trailingAnchor),
-@@ -400,6 +403,7 @@ class MediaControlPanelView: UIView {
+         // to zero while keeping height of the UI elements intact. Combined with setting element's alpha to `0` or `1`
+         // we get nice animations when switching between media items.
+-        NSLayoutConstraint.activate([
++        var buttonConstraints = [
+             captionView.leadingAnchor.constraint(equalTo: captionViewArea.leadingAnchor),
+             captionView.topAnchor.constraint(equalTo: captionViewArea.topAnchor),
+             captionView.trailingAnchor.constraint(equalTo: captionViewArea.trailingAnchor),
+@@ -391,7 +393,9 @@ class MediaControlPanelView: UIView {
                  constraint.priority = .defaultHigh + 100
                  return constraint
              }(),
-+#endif
+-
++        ]
++#if !SIGNAL_BACKUP_VIEWER
++        buttonConstraints.append(contentsOf: [
+             buttonForwardMedia.topAnchor.constraint(equalTo: buttonArea.topAnchor),
+             buttonForwardMedia.widthAnchor.constraint(equalTo: buttonForwardMedia.heightAnchor),
+             buttonForwardMedia.trailingAnchor.constraint(equalTo: buttonArea.trailingAnchor),
+@@ -401,6 +405,8 @@ class MediaControlPanelView: UIView {
+                 return constraint
+             }(),
          ])
++#endif
++        NSLayoutConstraint.activate(buttonConstraints)
  
          // TODO: Add "Read More"
-@@ -1034,7 +1038,9 @@ class MediaControlPanelView: UIView {
+         captionView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapCaption)))
+@@ -1034,7 +1040,9 @@ class MediaControlPanelView: UIView {
      }
  
      private func updateBottomButtonsLayout() {
@@ -430,7 +448,7 @@ index 5aa9f61..c9a86a3 100644
          buttonAreaZeroHeightConstraint.isActive = isVerticallyCompactLayout
      }
 diff --git a/Signal/src/ViewControllers/MediaGallery/MediaPageViewController.swift b/Signal/src/ViewControllers/MediaGallery/MediaPageViewController.swift
-index dbd9704..4577780 100644
+index dbd9704..e1f9b48 100644
 --- a/Signal/src/ViewControllers/MediaGallery/MediaPageViewController.swift
 +++ b/Signal/src/ViewControllers/MediaGallery/MediaPageViewController.swift
 @@ -372,7 +372,11 @@ class MediaPageViewController: UIPageViewController {
@@ -445,22 +463,38 @@ index dbd9704..4577780 100644
          } else {
              navigationItem.rightBarButtonItems = [buildContextMenuBarButton()]
          }
-@@ -406,6 +410,7 @@ class MediaPageViewController: UIPageViewController {
+@@ -381,7 +385,7 @@ class MediaPageViewController: UIPageViewController {
+     // MARK: Context Menu
+ 
+     private func buildContextMenuBarButton() -> UIBarButtonItem {
+-        .contextMenuButton(actions: [
++        var actions = [
+             // TODO: Video Playback Speed
+             // TODO: Edit
+             UIAction(
+@@ -406,7 +410,9 @@ class MediaPageViewController: UIPageViewController {
                      self?.presentConversationForCurrentMedia()
                  },
              ),
+-            UIAction(
++        ]
 +#if !SIGNAL_BACKUP_VIEWER
-             UIAction(
++        actions.append(UIAction(
                  title: OWSLocalizedString(
                      "MEDIA_VIEWER_DELETE_MEDIA_ACTION",
-@@ -417,6 +422,7 @@ class MediaPageViewController: UIPageViewController {
+                     comment: "Context menu item in media viewer. Refers to deleting currently displayed photo/video.",
+@@ -416,8 +422,9 @@ class MediaPageViewController: UIPageViewController {
+                 handler: { [weak self] _ in
                      self?.deleteCurrentMedia()
                  },
-             ),
+-            ),
+-        ])
++            ))
 +#endif
-         ])
++        return .contextMenuButton(actions: actions)
      }
  
+     // MARK: Bar Buttons
 diff --git a/Signal/src/ViewControllers/MessageActionsToolbar.swift b/Signal/src/ViewControllers/MessageActionsToolbar.swift
 index ff39774..3acc0e6 100644
 --- a/Signal/src/ViewControllers/MessageActionsToolbar.swift
@@ -491,19 +525,31 @@ index ff39774..3acc0e6 100644
          }()
          return Theme.iconImage(icon)
 diff --git a/Signal/src/ViewControllers/Stickers/StickerPackViewController.swift b/Signal/src/ViewControllers/Stickers/StickerPackViewController.swift
-index bb4b7c7..f06d9c8 100644
+index bb4b7c7..9dca098 100644
 --- a/Signal/src/ViewControllers/Stickers/StickerPackViewController.swift
 +++ b/Signal/src/ViewControllers/Stickers/StickerPackViewController.swift
-@@ -52,7 +52,9 @@ class StickerPackViewController: OWSViewController, StickerPackDataSourceDelegat
+@@ -47,6 +47,13 @@ class StickerPackViewController: OWSViewController, StickerPackDataSourceDelegat
+ 
+         // Toolbar at the top.
+         let toolbar: UIToolbar = if #available(iOS 26, *) { UIToolbar() } else { UIToolbar.clear() }
++#if SIGNAL_BACKUP_VIEWER
++        toolbar.items = [
++            .closeButton { [weak self] in
++                self?.dismissButtonPressed()
++            },
++        ]
++#else
+         toolbar.items = [
+             .closeButton { [weak self] in
                  self?.dismissButtonPressed()
-             },
+@@ -54,6 +61,7 @@ class StickerPackViewController: OWSViewController, StickerPackDataSourceDelegat
              UIBarButtonItem.flexibleSpace(),
-+#if !SIGNAL_BACKUP_VIEWER
              shareBarButtonItem,
-+#endif
          ]
++#endif
          if #unavailable(iOS 26) {
              toolbar.tintColor = Theme.darkThemeLegacyPrimaryIconColor
+         }
 diff --git a/SignalServiceKit/Backups/Archiving/BackupArchiveManager.swift b/SignalServiceKit/Backups/Archiving/BackupArchiveManager.swift
 index a179eb2..54c2a2d 100644
 --- a/SignalServiceKit/Backups/Archiving/BackupArchiveManager.swift
