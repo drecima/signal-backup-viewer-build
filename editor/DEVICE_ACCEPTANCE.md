@@ -57,6 +57,25 @@ Before packaging the fixture, verify:
 Record only non-sensitive hashes, versions, operation names, selectors and
 expected outcomes in the test manifest.
 
+## Prepared fixture builder
+
+The v1.0.0 package includes `tests/build_v1_acceptance.py`. It securely prompts
+once for the recovery key, copies the complete source `SignalBackups`
+directory, automatically selects one eligible direct contact chat, the unique
+Note to Self chat, and one authenticated direct attachment, then constructs all
+four markers in a new canonical backup. It refuses missing or ambiguous
+prerequisites.
+
+Run it only with a disposable destination path:
+
+```sh
+PYTHONPATH=. python tests/build_v1_acceptance.py \
+  /path/to/SignalBackups/signal-backup-YYYY-MM-DD-HH-MM-SS \
+  /path/to/disposable/SignalBackups
+```
+
+The source directory is read only. The destination must not already exist.
+
 ## Viewer test
 
 Import the unedited copied backup into a fresh Viewer v0.3.2 container first and
