@@ -3,8 +3,8 @@
 This document defines the first safe arbitrary-message constructors. It targets
 Signal iOS commit
 [`f8170e0bf7b2e7fb70bcdfaedd0abe3b5030e8c5`](https://github.com/signalapp/Signal-iOS/tree/f8170e0bf7b2e7fb70bcdfaedd0abe3b5030e8c5)
-(`8.29.0.1861-beta`). Implementation begins only after the exact v0.12.1
-source and tests are recovered and reproduce the preserved binary.
+(`8.29.0.1861-beta`). The exact v0.12.1 source and tests were recovered and
+passed their baseline suites before v1.0 implementation began.
 
 ## Safety contract
 
@@ -152,3 +152,13 @@ backup may be replaced; a mandatory second output location is not required.
 Secrets and sensitive content should be accepted through interactive or
 protected input. Recovery keys must never be accepted as ordinary command-line
 arguments.
+
+## Implementation result
+
+The v1.0.0 candidate implements `create-message` with the four initial
+templates. It passes the pinned libsignal validator and encrypted reopen tests
+for direct and group incoming messages, outgoing messages, Note to Self,
+historical insertion, copied attachments, newly encrypted attachments, and
+in-place rollback. See [V1.0.0_TEST_REPORT.md](V1.0.0_TEST_REPORT.md).
+
+Device acceptance is still required before this candidate is declared final.
