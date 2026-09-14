@@ -10,7 +10,7 @@ index add29ce..12ffff6 100644
 +#if SIGNAL_BACKUP_VIEWER
 +enum SignalBackupViewerRuntime {
 +    static var isEnabled: Bool {
-+        Bundle.main.bundleIdentifier == "org.signalbackup.viewer"
++        ProcessInfo.processInfo.environment["SIGNAL_BACKUP_VIEWER_DISABLED"] != "1"
 +    }
 +}
 +#endif
