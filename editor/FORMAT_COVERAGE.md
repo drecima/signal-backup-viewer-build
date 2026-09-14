@@ -22,11 +22,18 @@ Supported, Preserved opaque, Refused safely, or Missing.
 | Main archive | optional nonce header; HMAC; AES encryption; gzip; varint-delimited protobuf frames | Validate HMAC before mutation; fresh IV on rewrite |
 | Header | version, backupTimeMs, mediaRootBackupKey, currentAppVersion, firstAppVersion, debugInfo | Preserve unknown and unedited fields |
 | Frame order | AccountData first; referenced frames before referrers; ChatItems in global render order | Full validation before replacement |
-| Unknown fields | protobuf fields unknown to this editor version | Preserve byte values through parse/serialize |
+| Unknown fields | protobuf fields unknown to this editor version | Preserve byte values through parse/serialize and report separately |
 
 Signal's stream order at this commit is chunking, gzip compression, encryption,
 HMAC generation, and optional nonce header for output; input reverses the
 transforms after validating the HMAC.
+
+Signal iOS also calls libsignal's bulk `validateMessageBackup` API. The
+validator makes two stream passes so it can authenticate and parse independently.
+Its unknown-field result is separate from hard validation failures. The editor
+should use this validator as a release gate when practical, while retaining its
+own value-preserving protobuf tests. Libsignal's ComparableBackup JSON is
+canonicalized and explicitly not a value-preserving serialization format.
 
 ## Top-level frame families
 
@@ -129,6 +136,22 @@ The schema includes:
 Each group update carries a distinct combination of ACI, PNI, count, access
 level, timestamp and boolean fields. Do not implement them through one generic
 dictionary mutation unless type-specific validation remains enforced.
+
+## Whole-backup uniqueness and completion constraints
+
+Libsignal's model additionally rejects or requires conditions that are not
+visible from field types alone:
+
+- AccountData must exist.
+- The Self recipient must exist and must be unique.
+- If chat folders exist, exactly one ALL folder must exist.
+- Contact phone numbers, usernames, ACIs and PNIs must not collide.
+- Group master keys, distribution-list IDs and call-link root keys must not
+  collide.
+- The release-notes recipient must be unique.
+
+These checks belong in the final validation pass after every edit, including
+edits that appear unrelated to recipients.
 
 ## Reference graph to validate
 
