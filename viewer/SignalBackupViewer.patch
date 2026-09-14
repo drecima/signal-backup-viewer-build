@@ -266,7 +266,7 @@ index b6c455c..48d106e 100644
          let selectAction = MessageActionBuilder.selectMessage(itemViewModel: itemViewModel, delegate: delegate)
          return [deleteAction, selectAction]
 diff --git a/Signal/Registration/RegistrationCoordinatorImpl.swift b/Signal/Registration/RegistrationCoordinatorImpl.swift
-index b390c9c..df1eaf6 100644
+index b390c9c..e1e983f 100644
 --- a/Signal/Registration/RegistrationCoordinatorImpl.swift
 +++ b/Signal/Registration/RegistrationCoordinatorImpl.swift
 @@ -658,6 +658,44 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
@@ -350,26 +350,27 @@ index b390c9c..df1eaf6 100644
          await db.awaitableWrite { tx in
              if needsToScheduleRestoreFromSVRB() {
                  deps.backupArchiveManager.scheduleRestoreFromSVRBBeforeNextExport(tx: tx)
-@@ -3631,10 +3686,18 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -3631,10 +3686,19 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
      ) async -> RegistrationStep {
          switch mode {
          case .registering, .reRegistering:
 +#if SIGNAL_BACKUP_VIEWER
-+            if !SignalBackupViewerRuntime.isEnabled {
-+#endif
++            if SignalBackupViewerRuntime.isEnabled {
++                logger.info("[Viewer] Skipping restricted websocket setup")
++            } else if !inMemoryState.hasOpenedConnection {
++                await deps.registrationWebSocketManager.acquireRestrictedWebSocket(chatServiceAuth: accountIdentity.chatServiceAuth)
++                inMemoryState.hasOpenedConnection = true
++            }
++#else
              if !inMemoryState.hasOpenedConnection {
                  await deps.registrationWebSocketManager.acquireRestrictedWebSocket(chatServiceAuth: accountIdentity.chatServiceAuth)
                  inMemoryState.hasOpenedConnection = true
              }
-+#if SIGNAL_BACKUP_VIEWER
-+            } else {
-+                logger.info("[Viewer] Skipping restricted websocket setup")
-+            }
 +#endif
  
          case .changingNumber(let changeNumberState):
              if let pniState = changeNumberState.pniState {
-@@ -3649,7 +3712,12 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -3649,7 +3713,12 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
          }
  
          // We _must_ do these steps first.
@@ -383,7 +384,7 @@ index b390c9c..df1eaf6 100644
              // After atomic account creation, our account is ready to go from the start.
              // But we should still upload one-time prekeys, as that is not part
              // of account creation.
-@@ -3674,6 +3742,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -3674,6 +3743,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
                  return .showErrorSheet(.genericError)
              }
          }
@@ -395,7 +396,7 @@ index b390c9c..df1eaf6 100644
  
          if
              shouldRestoreFromStorageServiceBeforeUpdatingSVR(),
-@@ -3814,9 +3887,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -3814,9 +3888,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
              finalizeProgress = nil
          }
  
@@ -408,7 +409,7 @@ index b390c9c..df1eaf6 100644
                  localUsernameState: localUsernameState,
              )
          }
-@@ -3826,7 +3901,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -3826,7 +3902,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
          let finalStep = {
              await self.exportAndWipeState(
                  accountEntropyPool: accountEntropyPool,
@@ -417,7 +418,7 @@ index b390c9c..df1eaf6 100644
              )
          }
  
-@@ -4367,6 +4442,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -4367,6 +4443,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
      // MARK: - Permissions
  
      private func requiresSystemPermissions() async -> Bool {
@@ -429,7 +430,7 @@ index b390c9c..df1eaf6 100644
          let needsContactAuthorization = deps.contactsStore.needsContactsAuthorization()
          let needsNotificationAuthorization = await deps.pushRegistrationManager.needsNotificationAuthorization()
          return needsContactAuthorization || needsNotificationAuthorization
-@@ -4401,6 +4481,29 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -4401,6 +4482,29 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
              fallthrough
  
          case .registering:
