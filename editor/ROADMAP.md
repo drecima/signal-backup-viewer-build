@@ -6,10 +6,11 @@ The persistent release history contains packaged Linux x86_64 editors from
 v0.5.0 through v0.12.1. It also contains versioned acceptance-test backups for
 v0.8.0, v0.8.1, v0.9.0, v0.10.0, v0.11.0, v0.12.0, and v0.12.1.
 
-The current GitHub repositories do not contain the editor source, tests,
-changelog, or prior roadmap. Before changing behavior, import and verify the
-exact source bundled with v0.12.1. Do not reconstruct an older editor from
-memory or silently replace already-tested behavior.
+The exact v0.12.1 package was recovered on September 14, 2026. Its ZIP
+SHA-256 is `a86fbcd3f1b5c990f84b56cd1d949d0ec6d49bd3fca293a3650065967d87e788`.
+The source identifies itself as v0.12.1 and passed its self-test plus the
+pre-v1 integration, v0.10, v0.11, and v0.12.1 regression suites against pinned
+libsignal commit `ea42ed0ed3e2ae119282d98253c35a28cce02414`.
 
 ## Release reconciliation
 
@@ -24,11 +25,12 @@ audit:
 | v0.10 | Sender/chat reassignment, styled text, revisions and expiration | Packaged; audit exact v0.12.1 source |
 | v0.11 | Attachment add/remove and common group/system events | Packaged; audit exact v0.12.1 source |
 | v0.12 | Polls, contacts, stickers and specialized message types | Packaged; v0.12.1 acceptance fixture exists |
-| v1.0 | Safe arbitrary message construction | Next implementation milestone |
+| v1.0 | Safe arbitrary message construction | Implemented as v1.0.0; device acceptance pending |
 
 Artifact existence is not equivalent to complete device acceptance. The
-v0.12.1 source and tests must be recovered before the table is converted into
-a per-command verified coverage matrix.
+recovered v0.12.1 source is now the verified implementation baseline. v1.0.0
+passes synthetic official-validator tests; fresh Viewer and unmodified-Signal
+device acceptance remain required.
 
 ## Phase 0 - preserve known-good baselines
 
@@ -91,7 +93,10 @@ the editor cannot interpret them.
 
 ## Phase 3 - v1.0 arbitrary message construction
 
-v1.0 should construct new messages without requiring the user to duplicate an
+Implementation status: complete in the packaged v1.0.0 candidate. Device
+acceptance remains pending.
+
+v1.0 constructs new messages without requiring the user to duplicate an
 existing simple message manually.
 
 Required construction inputs:
@@ -127,7 +132,10 @@ Start with four templates:
 3. Note to Self text message;
 4. text message with one existing or newly supplied attachment.
 
-Add specialized constructors only after those four pass end-to-end restoration.
+All four pass the pinned official validator, encrypted reopen, reference,
+attachment, historical-placement, direct/group incoming, Note to Self, and
+in-place rollback tests. Add specialized constructors only after the four pass
+end-to-end device restoration.
 
 ## Input-file policy
 
