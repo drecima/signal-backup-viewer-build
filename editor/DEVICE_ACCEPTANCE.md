@@ -29,6 +29,20 @@ The v1.0 test fixture must be generated from a copied backup and include:
 - one invalid recipient/chat reference that is expected to fail;
 - one deliberately corrupted HMAC that is expected to fail before writing.
 
+Negative-construction tests must fail before replacing the copied backup. At
+minimum, cover:
+
+- an incoming message authored by Self;
+- a Note to Self message authored by a non-Self recipient;
+- a normal quote with neither text nor attachments;
+- a link preview whose URL is absent from the message body;
+- a direct story reply placed in a group chat;
+- a reaction with an invalid author or timestamp;
+- a revision whose direction details differ from its parent;
+- an invalid attachment client UUID;
+- a poll with an empty question or invalid repeated vote;
+- a pin update with an unresolved author or target timestamp.
+
 Before packaging the fixture, verify:
 
 - input and output HMACs independently;
