@@ -1,4 +1,4 @@
-# Signal Backup Viewer v0.3
+# Signal Backup Viewer v0.3.1
 
 This is an unsigned, experimental iOS build based on Signal iOS
 `8.29.0.1861-beta`. It is intended only for importing and inspecting a local
@@ -50,24 +50,38 @@ The media viewer retains Save, Share, and Go to Message but removes Delete and
 Forward. Sticker-pack forwarding and long-text forwarding are also removed.
 The existing conversation composer and message-mutation restrictions remain.
 
+## v0.3.1 LiveContainer bootstrap fix
+
+The first v0.3 device attempt accepted the recovery key but then entered Signal's
+normal profile-setup path and failed with `noIdentityKey`. The viewer runtime
+gate depended on `Bundle.main.bundleIdentifier`, which is not a stable viewer
+identity when the unsigned app is hosted by LiveContainer.
+
+v0.3.1 makes viewer mode active by default in every binary compiled with
+`SIGNAL_BACKUP_VIEWER`. A runtime environment switch can explicitly disable it
+for diagnostics, preserving a non-constant branch for Xcode while no longer
+depending on the host-reported bundle identifier. This reactivates the synthetic
+identity bootstrap, network bypasses, original-ACI recovery, and read-only UI
+controls under LiveContainer.
+
 ## Build verification
 
-The public GitHub Actions v0.3 build completed successfully on September 14,
+The public GitHub Actions v0.3.1 build completed successfully on September 14,
 2026.
 
 - Source commit: Signal iOS `f8170e0bf7b2e7fb70bcdfaedd0abe3b5030e8c5`
   (`8.29.0.1861-beta`).
-- Harness build commit: `1688a57c17ff33a424d39d2b37e4fd8c69b4bebd`.
-- Successful workflow run: [34832754843](https://github.com/drecima/signal-backup-viewer-build/actions/runs/34832754843).
+- Harness build commit: `5d1e4765ae40e1078043cccec29c0a097a6e928d`.
+- Successful workflow run: [34839997135](https://github.com/drecima/signal-backup-viewer-build/actions/runs/34839997135).
 - Bundle identifier, app name, version, ARM64 architecture, absence of signing
-  material/extensions, viewer menu marker, network interposition section, and
-  original-ACI recovery marker were checked during packaging and again after
+  material/extensions, viewer menu marker, LiveContainer-safe runtime marker, network interposition
+  section, and original-ACI recovery marker were checked during packaging and again after
   downloading the artifact.
 - IPA SHA-256:
-  `2cd40e0aeb7633315d821055ec7e5513fbf3583bf9f8083755471dab6e2b8269`.
+  `18eaa3bcac00a4791a0f92cd06377d9d157c87def4994678bc5bae317a89db42`.
 
 These checks prove that the intended source compiled and was packaged. Device
-acceptance of the new v0.3 behavior is still pending.
+acceptance of the corrected v0.3.1 behavior is still pending.
 
 ## Device acceptance
 
@@ -85,14 +99,15 @@ The v0.2 IPA has passed the intended device workflow under LiveContainer:
   and other visible history-changing actions are unavailable.
 - Relaunching preserves the imported local archive.
 
-The v0.2 workflow above passed. v0.3 still needs a fresh-container device test
+The v0.2 workflow above passed. v0.3.1 still needs a fresh-container device test
 to confirm original-ACI attribution and the tightened media, sticker-pack, and
 long-text menus.
 
 ## Installation and use
 
 1. Install/sign the IPA as a separate app. Do not inject Signal tweaks or the
-   third-party `NetworkDisabler.dylib`.
+   third-party `NetworkDisabler.dylib`. Use a fresh LiveContainer data folder;
+   do not reuse the failed v0.3 registration state.
 2. Choose the path for a user without an old device, then choose local backup.
 3. In the Files picker, select either `SignalBackups` or its parent folder.
    The viewer selects the newest canonical backup and then asks for the
