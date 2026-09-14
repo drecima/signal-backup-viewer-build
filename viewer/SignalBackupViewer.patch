@@ -266,7 +266,7 @@ index b6c455c..48d106e 100644
          let selectAction = MessageActionBuilder.selectMessage(itemViewModel: itemViewModel, delegate: delegate)
          return [deleteAction, selectAction]
 diff --git a/Signal/Registration/RegistrationCoordinatorImpl.swift b/Signal/Registration/RegistrationCoordinatorImpl.swift
-index 36ed9b5..240971c 100644
+index b390c9c..df1eaf6 100644
 --- a/Signal/Registration/RegistrationCoordinatorImpl.swift
 +++ b/Signal/Registration/RegistrationCoordinatorImpl.swift
 @@ -658,6 +658,44 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
@@ -350,7 +350,52 @@ index 36ed9b5..240971c 100644
          await db.awaitableWrite { tx in
              if needsToScheduleRestoreFromSVRB() {
                  deps.backupArchiveManager.scheduleRestoreFromSVRBBeforeNextExport(tx: tx)
-@@ -3814,9 +3869,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -3631,10 +3686,18 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+     ) async -> RegistrationStep {
+         switch mode {
+         case .registering, .reRegistering:
++#if SIGNAL_BACKUP_VIEWER
++            if !SignalBackupViewerRuntime.isEnabled {
++#endif
+             if !inMemoryState.hasOpenedConnection {
+                 await deps.registrationWebSocketManager.acquireRestrictedWebSocket(chatServiceAuth: accountIdentity.chatServiceAuth)
+                 inMemoryState.hasOpenedConnection = true
+             }
++#if SIGNAL_BACKUP_VIEWER
++            } else {
++                logger.info("[Viewer] Skipping restricted websocket setup")
++            }
++#endif
+ 
+         case .changingNumber(let changeNumberState):
+             if let pniState = changeNumberState.pniState {
+@@ -3649,7 +3712,12 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+         }
+ 
+         // We _must_ do these steps first.
+-        if shouldRefreshOneTimePreKeys() {
++#if SIGNAL_BACKUP_VIEWER
++        let shouldRotateOneTimePreKeys = !SignalBackupViewerRuntime.isEnabled && shouldRefreshOneTimePreKeys()
++#else
++        let shouldRotateOneTimePreKeys = shouldRefreshOneTimePreKeys()
++#endif
++        if shouldRotateOneTimePreKeys {
+             // After atomic account creation, our account is ready to go from the start.
+             // But we should still upload one-time prekeys, as that is not part
+             // of account creation.
+@@ -3674,6 +3742,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+                 return .showErrorSheet(.genericError)
+             }
+         }
++#if SIGNAL_BACKUP_VIEWER
++        if SignalBackupViewerRuntime.isEnabled {
++            logger.info("[Viewer] Skipping one-time prekey upload")
++        }
++#endif
+ 
+         if
+             shouldRestoreFromStorageServiceBeforeUpdatingSVR(),
+@@ -3814,9 +3887,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
              finalizeProgress = nil
          }
  
@@ -363,7 +408,7 @@ index 36ed9b5..240971c 100644
                  localUsernameState: localUsernameState,
              )
          }
-@@ -3826,7 +3883,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -3826,7 +3901,7 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
          let finalStep = {
              await self.exportAndWipeState(
                  accountEntropyPool: accountEntropyPool,
@@ -372,7 +417,7 @@ index 36ed9b5..240971c 100644
              )
          }
  
-@@ -4367,6 +4424,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -4367,6 +4442,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
      // MARK: - Permissions
  
      private func requiresSystemPermissions() async -> Bool {
@@ -384,12 +429,23 @@ index 36ed9b5..240971c 100644
          let needsContactAuthorization = deps.contactsStore.needsContactsAuthorization()
          let needsNotificationAuthorization = await deps.pushRegistrationManager.needsNotificationAuthorization()
          return needsContactAuthorization || needsNotificationAuthorization
-@@ -4401,6 +4463,18 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
+@@ -4401,6 +4481,29 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
              fallthrough
  
          case .registering:
 +#if SIGNAL_BACKUP_VIEWER
 +            if SignalBackupViewerRuntime.isEnabled {
++                let prekeyBundles = await deps.preKeyManager.createPreKeysForRegistration()
++                await deps.preKeyManager.finalizeRegistrationPreKeys(
++                    prekeyBundles,
++                    uploadDidSucceed: true,
++                )
++                db.write { tx in
++                    self.updatePersistedState(tx) {
++                        $0.didRefreshOneTimePreKeys = true
++                    }
++                }
++                logger.info("[Viewer] Created and persisted local-only identity key material")
 +                let viewerIdentity = AccountIdentity(
 +                    aci: Aci(fromUUID: UUID(uuidString: "53424556-4945-4000-8000-000000000001")!),
 +                    pni: Pni(fromUUID: UUID(uuidString: "53424556-4945-4000-8000-000000000002")!),
