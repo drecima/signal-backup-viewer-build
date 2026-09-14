@@ -1,4 +1,4 @@
-# Signal Backup Viewer v0.2
+# Signal Backup Viewer v0.3
 
 This is an unsigned, experimental iOS build based on Signal iOS
 `8.29.0.1861-beta`. It is intended only for importing and inspecting a local
@@ -38,24 +38,38 @@ The iOS Files provider is a separate operating-system process. If a selected
 backup is stored in iCloud, iOS may download its encrypted files before handing
 them to the viewer. The viewer's own network paths remain blocked.
 
+## v0.3 identity and read-only hardening
+
+v0.3 recovers the original local ACI from authenticated backup relationships
+when group-membership evidence identifies exactly one self member. The importer
+uses that ACI for restoration and persists it as the viewer identity, correcting
+self mentions and group-update attribution that v0.2 could render as Unknown.
+Ambiguous group evidence is rejected instead of guessing.
+
+The media viewer retains Save, Share, and Go to Message but removes Delete and
+Forward. Sticker-pack forwarding and long-text forwarding are also removed.
+The existing conversation composer and message-mutation restrictions remain.
+
 ## Build verification
 
-The public GitHub Actions v0.2 build completed successfully on September 13,
-2026. The workflow verifies that the local identity bootstrap is present in the
-compiled binary.
+The public GitHub Actions v0.3 build completed successfully on September 14,
+2026.
 
 - Source commit: Signal iOS `f8170e0bf7b2e7fb70bcdfaedd0abe3b5030e8c5`
   (`8.29.0.1861-beta`).
-- Harness commit: `914ca5ddecfd7e568c50c3ced47c549ea66e0649`.
+- Harness build commit: `1688a57c17ff33a424d39d2b37e4fd8c69b4bebd`.
+- Successful workflow run: [34832754843](https://github.com/drecima/signal-backup-viewer-build/actions/runs/34832754843).
 - Bundle identifier, app name, version, ARM64 architecture, absence of signing
-  material/extensions, viewer menu marker, and network interposition section
-  were checked after downloading the artifact.
+  material/extensions, viewer menu marker, network interposition section, and
+  original-ACI recovery marker were checked during packaging and again after
+  downloading the artifact.
 - IPA SHA-256:
-  `57a3d0c100d12778d352aa846148fba247d5c545e52f28b16a5c9d2f764bf9c6`.
+  `2cd40e0aeb7633315d821055ec7e5513fbf3583bf9f8083755471dab6e2b8269`.
 
-These checks prove that the intended source compiled and was packaged.
+These checks prove that the intended source compiled and was packaged. Device
+acceptance of the new v0.3 behavior is still pending.
 
-## Device acceptance - passed
+## Device acceptance
 
 The v0.2 IPA has passed the intended device workflow under LiveContainer:
 
@@ -71,14 +85,18 @@ The v0.2 IPA has passed the intended device workflow under LiveContainer:
   and other visible history-changing actions are unavailable.
 - Relaunching preserves the imported local archive.
 
+The v0.2 workflow above passed. v0.3 still needs a fresh-container device test
+to confirm original-ACI attribution and the tightened media, sticker-pack, and
+long-text menus.
+
 ## Installation and use
 
 1. Install/sign the IPA as a separate app. Do not inject Signal tweaks or the
    third-party `NetworkDisabler.dylib`.
 2. Choose the path for a user without an old device, then choose local backup.
-3. In the Files picker, open the parent folder so that `SignalBackups` is
-   visible, but do not enter `SignalBackups`. Select that parent folder and
-   enter the 64-character recovery key.
+3. In the Files picker, select either `SignalBackups` or its parent folder.
+   The viewer selects the newest canonical backup and then asks for the
+   64-character recovery key.
 4. If the reused Signal setup UI asks for a phone number, enter a syntactically
    valid dummy number such as `+1 650-555-0100`. It is used only as a local
    placeholder and no verification message is requested by the viewer build.
