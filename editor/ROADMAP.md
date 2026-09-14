@@ -63,6 +63,13 @@ construction is added:
   files.
 - Tests cover both format version 0.11 and 0.12 inputs seen in the existing
   acceptance history.
+- A final encrypted output is checked with libsignal's official bulk message
+  backup validator when a compatible binding or helper is available. Treat
+  unknown fields as a separately reported soft error and structural failures
+  as hard errors.
+- A canonical libsignal comparison is used only as an additional semantic
+  round-trip check. It is not value-preserving and cannot replace protobuf-level
+  preservation tests.
 
 ## Phase 2 - schema coverage audit
 
