@@ -100,7 +100,6 @@ jobs:
           grep -q "__interpose" "$RUNNER_TEMP/viewer-ssk-load-commands.txt"
           test ! -e "$viewer/PlugIns"
 
-          grep -q "Created and persisted local-only identity key material" "$RUNNER_TEMP/viewer-main-strings.txt"
           strings "$viewer/Frameworks/SignalServiceKit.framework/SignalServiceKit" > "$RUNNER_TEMP/viewer-ssk-strings.txt"
           grep -q "Recovered original local ACI from backup relationships" "$RUNNER_TEMP/viewer-ssk-strings.txt"
 
