@@ -92,28 +92,34 @@ The public GitHub Actions v0.3.2 build completed successfully on September 14,
 - IPA SHA-256:
   `e0a28d8ab74696f253c6a7c86da5c18a13eb5dae62e81d1a08e09a9cc94766df`.
 
-These checks prove that the intended source compiled and was packaged. Device
-acceptance of the corrected v0.3.2 behavior is still pending.
+These checks prove that the intended source compiled and was packaged. The
+corrected v0.3.2 behavior has also passed the device checks below. The exact
+pre-acceptance repository state is preserved on branch
+`archive/viewer-v0.3.2-device-accepted`.
 
 ## Device acceptance
 
-The v0.2 IPA has passed the intended device workflow under LiveContainer:
+The v0.3.2 IPA has passed the intended device workflow under LiveContainer:
 
 - Installation and launch succeed without an injected network-disabling tweak.
 - Selecting the parent folder containing `SignalBackups` works.
-- A correct recovery key imports the native archive and restores attachments.
-- Note to Self and ordinary one-to-one conversations render normally.
+- A correct recovery key imports both the latest tested backup and an older
+  backup; attachments restore.
+- Note to Self, ordinary one-to-one conversations, and tested group content
+  render normally.
+- Self mentions and group-update attribution no longer render the local user as
+  Unknown.
 - Message text, images, generic files, audio, and disappearing-message status
   items expose exact `sbe1:<dateSent>` editor identifiers.
 - The copied identifiers match SignalBackupEditor records, including
   attachments and a disappearing-messages-disabled status item.
 - Compose, reply, reaction, edit, delete, forward, pin, selection, read-marking,
-  and other visible history-changing actions are unavailable.
+  media deletion/forwarding, and other tested history-changing actions are
+  unavailable.
 - Relaunching preserves the imported local archive.
 
-The v0.2 workflow above passed. v0.3.2 still needs a fresh-container device test
-to confirm original-ACI attribution and the tightened media, sticker-pack, and
-long-text menus.
+This accepted viewer build is the reference environment for validating edited
+backup copies. Further viewer changes should be limited to concrete defects.
 
 ## Installation and use
 
