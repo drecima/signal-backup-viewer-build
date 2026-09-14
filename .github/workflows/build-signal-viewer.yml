@@ -96,6 +96,7 @@ jobs:
           lipo -archs "$viewer/Signal" | grep -qw arm64
           strings "$viewer/Signal" > "$RUNNER_TEMP/viewer-main-strings.txt"
           grep -q "Copy Backup Editor ID" "$RUNNER_TEMP/viewer-main-strings.txt"
+          grep -q "SIGNAL_BACKUP_VIEWER_DISABLED" "$RUNNER_TEMP/viewer-main-strings.txt"
           otool -l "$viewer/Frameworks/SignalServiceKit.framework/SignalServiceKit" > "$RUNNER_TEMP/viewer-ssk-load-commands.txt"
           grep -q "__interpose" "$RUNNER_TEMP/viewer-ssk-load-commands.txt"
           test ! -e "$viewer/PlugIns"
@@ -103,7 +104,7 @@ jobs:
           strings "$viewer/Frameworks/SignalServiceKit.framework/SignalServiceKit" > "$RUNNER_TEMP/viewer-ssk-strings.txt"
           grep -q "Recovered original local ACI from backup relationships" "$RUNNER_TEMP/viewer-ssk-strings.txt"
 
-          output="$GITHUB_WORKSPACE/Signal-Backup-Viewer-8.29-viewer3-unsigned.ipa"
+          output="$GITHUB_WORKSPACE/Signal-Backup-Viewer-8.29-viewer3.1-unsigned.ipa"
           cd "$staging"
           /usr/bin/zip -qry "$output" Payload
           cd "$GITHUB_WORKSPACE"
@@ -113,9 +114,9 @@ jobs:
       - name: Upload viewer IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Signal-Backup-Viewer-8.29-viewer3-unsigned
+          name: Signal-Backup-Viewer-8.29-viewer3.1-unsigned
           path: |
-            Signal-Backup-Viewer-8.29-viewer3-unsigned.ipa
-            Signal-Backup-Viewer-8.29-viewer3-unsigned.ipa.sha256
+            Signal-Backup-Viewer-8.29-viewer3.1-unsigned.ipa
+            Signal-Backup-Viewer-8.29-viewer3.1-unsigned.ipa.sha256
           if-no-files-found: error
           retention-days: 7
