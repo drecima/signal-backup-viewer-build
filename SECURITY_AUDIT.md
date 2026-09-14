@@ -1,14 +1,15 @@
-# Signal Backup Viewer v0.2 security and read-only audit
+# Signal Backup Viewer v0.3 security and read-only audit
 
-Date: 2026-09-13
+Date: 2026-09-14
 
 ## Result
 
-The v0.2 source patch and packaged IPA implement the intended experimental
-offline-viewer boundary. Device acceptance confirmed that a native local
-backup imports, attachments restore, Note to Self and ordinary conversations
-render, exact editor IDs can be copied, and visible history-changing controls
-are unavailable.
+The v0.3 source patch compiles and the packaged IPA passes the automated
+offline-viewer boundary checks. v0.2 device acceptance confirmed native local
+backup import, restored attachments, Note to Self and ordinary conversation
+rendering, exact editor IDs, and unavailable history-changing controls. The new
+v0.3 identity-attribution and action-menu behavior still requires device
+acceptance in a fresh viewer container.
 
 ## Enforced in the viewer build
 
@@ -26,8 +27,12 @@ are unavailable.
   deletion, forwarding, pinning, and message selection.
 - Replaces message context menus with non-mutating inspection actions and
   `Copy Backup Editor ID`.
-- Derives the imported message-backup ID from authenticated local metadata, so
-  the original account ACI and a server connection are unnecessary.
+- Derives the imported message-backup ID from authenticated local metadata.
+- Infers the original local ACI only when authenticated group relationships
+  yield one unique candidate; ambiguous evidence is rejected.
+- Uses the recovered ACI for import and persists it as the local viewer identity.
+- Removes media Delete/Forward while retaining Save, Share, and Go to Message;
+  also removes sticker-pack and long-text forwarding.
 
 ## Deliberate local writes
 
@@ -63,11 +68,11 @@ of the release.
 
 - Signal source tag: `8.29.0.1861-beta`
 - Signal source commit: `f8170e0bf7b2e7fb70bcdfaedd0abe3b5030e8c5`
-- Viewer harness commit: `914ca5ddecfd7e568c50c3ced47c549ea66e0649`
+- Viewer harness build commit: `1688a57c17ff33a424d39d2b37e4fd8c69b4bebd`
 - Architecture: ARM64 iPhone device build
 - Bundle identifier: `org.signalbackup.viewer`
 - Extensions: absent
 - Signing material: absent
-- Viewer and network-interposition markers: present
+- Viewer, network-interposition, and original-ACI recovery markers: present
 - IPA SHA-256:
   `57a3d0c100d12778d352aa846148fba247d5c545e52f28b16a5c9d2f764bf9c6`
