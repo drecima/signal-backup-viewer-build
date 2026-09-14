@@ -180,6 +180,20 @@ sbe1:1789135600123
 SignalBackupEditor v0.6.2 accepts this value anywhere `--select` is accepted.
 It resolves the backup's `dateSent` value and refuses zero or multiple matches.
 
+
+## SignalBackupEditor v1.0 work
+
+The companion editor has a reconciled implementation plan and pinned-schema
+audit:
+
+- [v1.0 roadmap](editor/ROADMAP.md)
+- [Backup-format coverage inventory](editor/FORMAT_COVERAGE.md)
+- [Device acceptance procedure](editor/DEVICE_ACCEPTANCE.md)
+
+The preserved v0.12.1 editor package is the required source baseline. Import
+and reproduce that exact source before implementing arbitrary message
+construction.
+
 ## Source
 
 The minimal build harness and full viewer patch are public at:
