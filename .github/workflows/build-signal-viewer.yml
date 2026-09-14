@@ -100,9 +100,9 @@ jobs:
           grep -q "__interpose" "$RUNNER_TEMP/viewer-ssk-load-commands.txt"
           test ! -e "$viewer/PlugIns"
 
-          grep -q "Created and persisted local-only identity key material" "$RUNNER_TEMP/viewer-main-strings.txt"
+          grep -q "Created and persisted local-only identity key material" "$RUNNER_TEMP/viewer-main-strings.txt"\n          strings "$viewer/Frameworks/SignalServiceKit.framework/SignalServiceKit" > "$RUNNER_TEMP/viewer-ssk-strings.txt"\n          grep -q "Recovered original local ACI from backup relationships" "$RUNNER_TEMP/viewer-ssk-strings.txt"
 
-          output="$GITHUB_WORKSPACE/Signal-Backup-Viewer-8.29-viewer2-unsigned.ipa"
+          output="$GITHUB_WORKSPACE/Signal-Backup-Viewer-8.29-viewer3-unsigned.ipa"
           cd "$staging"
           /usr/bin/zip -qry "$output" Payload
           cd "$GITHUB_WORKSPACE"
@@ -112,9 +112,9 @@ jobs:
       - name: Upload viewer IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Signal-Backup-Viewer-8.29-viewer2-unsigned
+          name: Signal-Backup-Viewer-8.29-viewer3-unsigned
           path: |
-            Signal-Backup-Viewer-8.29-viewer2-unsigned.ipa
-            Signal-Backup-Viewer-8.29-viewer2-unsigned.ipa.sha256
+            Signal-Backup-Viewer-8.29-viewer3-unsigned.ipa
+            Signal-Backup-Viewer-8.29-viewer3-unsigned.ipa.sha256
           if-no-files-found: error
           retention-days: 7
