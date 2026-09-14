@@ -1,4 +1,4 @@
-# Signal Backup Viewer v0.3.1
+# Signal Backup Viewer v0.3.2
 
 This is an unsigned, experimental iOS build based on Signal iOS
 `8.29.0.1861-beta`. It is intended only for importing and inspecting a local
@@ -60,28 +60,40 @@ identity when the unsigned app is hosted by LiveContainer.
 v0.3.1 makes viewer mode active by default in every binary compiled with
 `SIGNAL_BACKUP_VIEWER`. A runtime environment switch can explicitly disable it
 for diagnostics, preserving a non-constant branch for Xcode while no longer
-depending on the host-reported bundle identifier. This reactivates the synthetic
-identity bootstrap, network bypasses, original-ACI recovery, and read-only UI
-controls under LiveContainer.
+depending on the host-reported bundle identifier.
+
+A second device test still failed with `noIdentityKey`. Comparison with the
+working v0.2 patch showed that v0.3 had accidentally omitted the local identity
+generation and the later websocket/prekey-upload bypasses. The runtime fix was
+valid but could not activate code that was absent.
+
+## v0.3.2 identity-bootstrap restoration
+
+v0.3.2 restores the exact Signal-native local ACI/PNI identity and prekey
+generation sequence that passed the v0.2 device test. It persists that material
+before returning the synthetic offline identity, then skips restricted websocket
+setup and network one-time-prekey rotation. The restored bootstrap now runs
+before v0.3's authenticated original-ACI inference and read-only import path.
 
 ## Build verification
 
-The public GitHub Actions v0.3.1 build completed successfully on September 14,
+The public GitHub Actions v0.3.2 build completed successfully on September 14,
 2026.
 
 - Source commit: Signal iOS `f8170e0bf7b2e7fb70bcdfaedd0abe3b5030e8c5`
   (`8.29.0.1861-beta`).
-- Harness build commit: `5d1e4765ae40e1078043cccec29c0a097a6e928d`.
-- Successful workflow run: [34839997135](https://github.com/drecima/signal-backup-viewer-build/actions/runs/34839997135).
+- Harness build commit: `de65d35d4510b0ff17bbf43bbe14b9f5eb303099`.
+- Successful workflow run: [34846700802](https://github.com/drecima/signal-backup-viewer-build/actions/runs/34846700802).
 - Bundle identifier, app name, version, ARM64 architecture, absence of signing
-  material/extensions, viewer menu marker, LiveContainer-safe runtime marker, network interposition
-  section, and original-ACI recovery marker were checked during packaging and again after
+  material/extensions, viewer menu marker, LiveContainer-safe runtime marker, local identity creation,
+  websocket/prekey-upload bypasses, network interposition section, and
+  original-ACI recovery marker were checked during packaging and again after
   downloading the artifact.
 - IPA SHA-256:
-  `18eaa3bcac00a4791a0f92cd06377d9d157c87def4994678bc5bae317a89db42`.
+  `e0a28d8ab74696f253c6a7c86da5c18a13eb5dae62e81d1a08e09a9cc94766df`.
 
 These checks prove that the intended source compiled and was packaged. Device
-acceptance of the corrected v0.3.1 behavior is still pending.
+acceptance of the corrected v0.3.2 behavior is still pending.
 
 ## Device acceptance
 
@@ -99,7 +111,7 @@ The v0.2 IPA has passed the intended device workflow under LiveContainer:
   and other visible history-changing actions are unavailable.
 - Relaunching preserves the imported local archive.
 
-The v0.2 workflow above passed. v0.3.1 still needs a fresh-container device test
+The v0.2 workflow above passed. v0.3.2 still needs a fresh-container device test
 to confirm original-ACI attribution and the tightened media, sticker-pack, and
 long-text menus.
 
@@ -107,7 +119,7 @@ long-text menus.
 
 1. Install/sign the IPA as a separate app. Do not inject Signal tweaks or the
    third-party `NetworkDisabler.dylib`. Use a fresh LiveContainer data folder;
-   do not reuse the failed v0.3 registration state.
+   do not reuse failed v0.3 or v0.3.1 registration state.
 2. Choose the path for a user without an old device, then choose local backup.
 3. In the Files picker, select either `SignalBackups` or its parent folder.
    The viewer selects the newest canonical backup and then asks for the
