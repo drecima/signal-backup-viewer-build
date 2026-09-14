@@ -191,9 +191,10 @@ audit:
 - [v1.0 construction specification](editor/V1_CONSTRUCTION_SPEC.md)
 - [Device acceptance procedure](editor/DEVICE_ACCEPTANCE.md)
 
-The preserved v0.12.1 editor package is the required source baseline. Import
-and reproduce that exact source before implementing arbitrary message
-construction.
+The exact v0.12.1 source baseline was recovered and its regression suites
+passed. A v1.0.0 candidate now implements the four initial constructors and
+passes pinned-libsignal, encrypted-reopen, attachment, historical-placement,
+and rollback tests. Device acceptance remains pending.
 
 ## Source
 
